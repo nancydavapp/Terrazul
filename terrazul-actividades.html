@@ -583,6 +583,12 @@ let CAT_TAREAS = [
   'Verificación de actividad','Término de giro simplificado','Término de giro normal',
   'Fusión','Peticiones administrativas comunes','Peticiones administrativas especiales','Otra'
 ];
+let CAT_TIEMPOS = {
+  'Actualización de capital':13,'Actualización de domicilio':13,'Actualización de socios':13,
+  'Representante legal':13,'Obtención de RUT/Clave':13,'Inicio de actividades':13,
+  'Verificación de actividad':13,'Término de giro simplificado':30,'Término de giro normal':200,
+  'Fusión':36,'Peticiones administrativas comunes':40,'Peticiones administrativas especiales':70,
+};
 let CAT_ETAPAS = [
   'Recepción solicitud','Revisión solicitud','Presentación SII',
   'Respuesta SII','Informar a cliente','Terminado'
@@ -742,7 +748,15 @@ async function cargarDesdeSheet() {
     ]);
 
     // Cargar categorías dinámicas
-    if (rC.length > 1) CAT_TAREAS     = rC.slice(1).map(r=>String(r[0]).trim()).filter(Boolean);
+    if (rC.length > 1) {
+      CAT_TAREAS = rC.slice(1).map(r=>String(r[0]).trim()).filter(Boolean);
+      CAT_TIEMPOS = {};
+      rC.slice(1).forEach(r => {
+        const nombre = String(r[0]).trim();
+        const dias = parseInt(r[1]);
+        if (nombre && !isNaN(dias)) CAT_TIEMPOS[nombre] = dias;
+      });
+    }
     if (rEt.length > 1) CAT_ETAPAS    = rEt.slice(1).map(r=>String(r[0]).trim()).filter(Boolean);
     if (rU.length > 1) CAT_UBICACIONES = rU.slice(1).map(r=>String(r[0]).trim()).filter(Boolean);
 
@@ -1216,7 +1230,7 @@ function poblarEmpresas() {
 
 function autoFecha() {
   const t=document.getElementById('f-tarea').value;
-  const d=TIEMPOS[t]; if(!d)return;
+  const d=CAT_TIEMPOS[t]; if(!d)return;
   const s=document.getElementById('f-sol').value||hoy();
   const o=new Date(s); o.setDate(o.getDate()+d);
   document.getElementById('f-obj').value=o.toISOString().split('T')[0];
