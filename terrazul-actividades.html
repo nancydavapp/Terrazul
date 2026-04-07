@@ -692,13 +692,17 @@ function respsToRows(resps) {
   return [['nombre','email'],...resps.map(r=>[r.nombre,r.email])];
 }
 
-async function guardarEnSheet() {
+async function guardarEnSheet(solo = null) {
   try {
-    await Promise.all([
-      sheetWrite('Actividades', actsToRows(ACTIVIDADES)),
-      sheetWrite('Empresas',    empsToRows(EMPRESAS)),
-      sheetWrite('Responsables',respsToRows(RESPONSABLES)),
-    ]);
+    if (solo === 'Empresas' || solo === null) {
+      await sheetWrite('Empresas', empsToRows(EMPRESAS));
+    }
+    if (solo === 'Actividades' || solo === null) {
+      await sheetWrite('Actividades', actsToRows(ACTIVIDADES));
+    }
+    if (solo === 'Responsables' || solo === null) {
+      await sheetWrite('Responsables', respsToRows(RESPONSABLES));
+    }
     document.querySelector('.sidebar-footer').innerHTML = `v2.0 · ☁️ Guardado ${new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})}`;
   } catch(e) {
     toast('Error al guardar en la nube','e');
@@ -940,7 +944,7 @@ function guardarResp() {
     RESPONSABLES.push({nombre:nom,email:em});
     toast('Responsable agregado','s');
   }
-  cancelarResp(); sincSelects(); renderArStats(); renderArTabla(); renderResps(); guardarEnSheet();
+  cancelarResp(); sincSelects(); renderArStats(); renderArTabla(); renderResps(); guardarEnSheet('Responsables');
 }
 
 function eliminarResp(i) {
@@ -950,7 +954,7 @@ function eliminarResp(i) {
   if (!confirm(msg)) return;
   RESPONSABLES.splice(i,1);
   toast('Responsable eliminado','w');
-  sincSelects(); renderArStats(); renderArTabla(); renderResps(); guardarEnSheet();
+  sincSelects(); renderArStats(); renderArTabla(); renderResps(); guardarEnSheet('Responsables');
 }
 
 // ======================================================
@@ -1054,7 +1058,7 @@ function guardarEmp() {
     EMPRESAS.push([cl,rut,nom]);
     toast(`Empresa "${nom}" agregada`,'s');
   }
-  cancelarEmp(); sincAeSelects(); sincSelects(); renderAeStats(); renderEmpAdmin(); renderClientes(); guardarEnSheet();
+  cancelarEmp(); sincAeSelects(); sincSelects(); renderAeStats(); renderEmpAdmin(); renderClientes(); guardarEnSheet('Empresas');
 }
 
 function eliminarEmp(i) {
@@ -1065,7 +1069,7 @@ function eliminarEmp(i) {
   if(!confirm(msg))return;
   EMPRESAS.splice(i,1);
   toast('Empresa eliminada','w');
-  sincAeSelects(); sincSelects(); renderAeStats(); renderEmpAdmin(); renderClientes(); guardarEnSheet();
+  sincAeSelects(); sincSelects(); renderAeStats(); renderEmpAdmin(); renderClientes(); guardarEnSheet('Empresas');
 }
 
 // ======================================================
@@ -1134,7 +1138,7 @@ function confirmarImp() {
   val.forEach(r=>EMPRESAS.push([r.c,r.rut,r.nom]));
   cerrarImpModal(); sincAeSelects(); sincSelects(); renderAeStats(); renderEmpAdmin(); renderClientes();
   toast(`${val.length} empresa${val.length!==1?'s':''} importada${val.length!==1?'s':''}`,'s');
-  guardarEnSheet();
+  guardarEnSheet('Empresas');
 }
 
 function descargarPlantilla() {
@@ -1229,13 +1233,13 @@ function guardarAct() {
     ACTIVIDADES.push({id:nextId++,...a});
     toast('Actividad creada','s');
   }
-  cerrarModal(); renderAll(); guardarEnSheet();
+  cerrarModal(); renderAll(); guardarEnSheet('Actividades');
 }
 
 function eliminarAct(id) {
   if(!confirm('¿Eliminar esta actividad?'))return;
   ACTIVIDADES=ACTIVIDADES.filter(a=>a.id!==id);
-  toast('Actividad eliminada','w'); renderAll(); guardarEnSheet();
+  toast('Actividad eliminada','w'); renderAll(); guardarEnSheet('Actividades');
 }
 
 // ======================================================
@@ -1333,7 +1337,7 @@ function importarBackup(e) {
       if(!confirm(`Backup del ${f}\n• ${d.actividades.length} actividades\n• ${d.empresas.length} empresas\n• ${d.responsables.length} responsables\n\n¿Restaurar? Los datos actuales serán reemplazados.`))return;
       ACTIVIDADES=d.actividades; EMPRESAS=d.empresas; RESPONSABLES=d.responsables;
       nextId=d.nextId||(Math.max(0,...d.actividades.map(a=>a.id))+1);
-      sincSelects(); renderAll(); guardarEnSheet(); toast('Backup restaurado','s');
+      sincSelects(); renderAll(); guardarEnSheet(null); toast('Backup restaurado','s');
     }catch{toast('Error al leer el backup','e');}
   };
   r.readAsText(file);
@@ -1480,7 +1484,7 @@ function confirmarImpActs() {
   document.getElementById('imp-act-overlay').classList.remove('open');
   impActRows = [];
   renderAll();
-  guardarEnSheet();
+  guardarEnSheet('Actividades');
   toast(`${validas.length} actividad${validas.length!==1?'es':''} importada${validas.length!==1?'s':''}`,'s');
 }
 
