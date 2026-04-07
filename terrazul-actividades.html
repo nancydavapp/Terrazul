@@ -1414,29 +1414,93 @@ function exportarActividades() {
   if (!activas.length) { toast('No hay actividades activas para exportar','w'); return; }
 
   const wb = XLSX.utils.book_new();
+  const ws = {};
 
-  // Hoja principal
-  const headerStyle = {font:{bold:true}};
-  const data = [
-    ['Cliente – Empresa','Tarea / Actividad','Descripción','Fecha de solicitud','Responsable del Trámite','Etapa trámite','Fecha objetivo','Ubicación trámite','Días restantes','Estado plazo','Comentarios u observaciones']
-  ];
+  // ---- LOGO (imagen en base64) ----
+  const logoB64 = 'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB3aWR0aD0iMjAwMCIgem9vbUFuZFBhbj0ibWFnbmlmeSIgdmlld0JveD0iMCAwIDE1MDAgMTQ5OS45OTk5MzMiIGhlaWdodD0iMjAwMCIgcHJlc2VydmVBc3BlY3RSYXRpbz0ieE1pZFlNaWQgbWVldCIgdmVyc2lvbj0iMS4wIj48ZGVmcz48Zy8+PGNsaXBQYXRoIGlkPSIyNzJkZjgwMjcyIj48cGF0aCBkPSJNIDk2LjY5MTQwNiA2NzEuMzEyNSBMIDI3NS41MTk1MzEgNjcxLjMxMjUgTCAyNzUuNTE5NTMxIDg1My45NjQ4NDQgTCA5Ni42OTE0MDYgODUzLjk2NDg0NCBaIE0gOTYuNjkxNDA2IDY3MS4zMTI1ICIgY2xpcC1ydWxlPSJub256ZXJvIi8+PC9jbGlwUGF0aD48L2RlZnM+PHJlY3QgeD0iLTE1MCIgd2lkdGg9IjE4MDAiIGZpbGw9IiNmZmZmZmYiIHk9Ii0xNDkuOTk5OTkzIiBoZWlnaHQ9IjE3OTkuOTk5OTIiIGZpbGwtb3BhY2l0eT0iMSIvPjwvc3ZnPg==';
 
-  activas.forEach(a => {
-    const d = dias(a.obj, a.etapa);
-    const estadoTxt = d === null ? '' : d < 0 ? 'Atrasado' : d <= ad() ? 'Próximo a vencer' : 'Dentro del plazo';
-    data.push([
-      a.empresa, a.tarea, a.desc, a.sol, a.resp,
-      a.etapa, a.obj, a.ubic, d ?? '', estadoTxt, a.obs
-    ]);
+  // ---- FILAS DE DATOS ----
+  // Fila 1: título
+  // Fila 2: fecha
+  // Fila 3: vacía
+  // Fila 4: encabezados
+  // Fila 5+: datos
+
+  const HEADER_ROW = 4; // row index (1-based) where headers go
+  const DATA_START = 5;
+
+  const headers = ['Cliente – Empresa','Tarea / Actividad','Descripción','Fecha Solicitud','Responsable','Etapa','Fecha Objetivo','Ubicación / Estado SII','Días Restantes','Estado Plazo','Observaciones'];
+
+  // Título y fecha
+  ws['A1'] = { v: 'TERRAZUL – Control de Actividades', t: 's', s: { font: { bold: true, sz: 14, color: { rgb: '0c0c59' } } } };
+  ws['A2'] = { v: `Generado: ${new Date().toLocaleDateString('es-CL')}`, t: 's', s: { font: { sz: 10, color: { rgb: '888888' } } } };
+
+  // Encabezados
+  const colLetters = ['A','B','C','D','E','F','G','H','I','J','K'];
+  headers.forEach((h, i) => {
+    ws[`${colLetters[i]}${HEADER_ROW}`] = {
+      v: h, t: 's',
+      s: {
+        font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 },
+        fill: { fgColor: { rgb: '0c0c59' } },
+        alignment: { horizontal: 'center', wrapText: true },
+        border: { bottom: { style: 'thin', color: { rgb: 'FFFFFF' } } }
+      }
+    };
   });
 
-  const ws = XLSX.utils.aoa_to_sheet(data);
+  // Datos con formato condicional
+  activas.forEach((a, rowIdx) => {
+    const d = dias(a.obj, a.etapa);
+    const estadoTxt = d === null ? '' : d < 0 ? 'Atrasado' : d <= ad() ? 'Próximo a vencer' : 'Dentro del plazo';
+    const excelRow = DATA_START + rowIdx;
+
+    // Color de fondo según estado
+    let bgColor = 'FFFFFF';
+    if (d !== null && d < 0) bgColor = 'F9D6D3';           // rojo suave
+    else if (d !== null && d <= ad()) bgColor = 'FFF0CC';   // amarillo suave
+    else if (d !== null && d > ad()) bgColor = 'D4F0E0';    // verde suave
+
+    const rowStyle = {
+      fill: { fgColor: { rgb: bgColor } },
+      alignment: { wrapText: true, vertical: 'top' },
+      border: {
+        bottom: { style: 'thin', color: { rgb: 'E4E9F0' } },
+        right: { style: 'thin', color: { rgb: 'E4E9F0' } }
+      }
+    };
+
+    const values = [
+      a.empresa, a.tarea, a.desc, a.sol, a.resp,
+      a.etapa, a.obj, a.ubic, d ?? '', estadoTxt, a.obs
+    ];
+
+    values.forEach((v, i) => {
+      ws[`${colLetters[i]}${excelRow}`] = { v: v ?? '', t: 's', s: rowStyle };
+    });
+  });
+
+  // Rango de celdas
+  const lastRow = DATA_START + activas.length - 1;
+  ws['!ref'] = `A1:K${lastRow}`;
 
   // Anchos de columna
   ws['!cols'] = [
-    {wch:35},{wch:28},{wch:45},{wch:14},{wch:14},
-    {wch:20},{wch:13},{wch:30},{wch:14},{wch:16},{wch:45}
+    {wch:35},{wch:28},{wch:40},{wch:13},{wch:13},
+    {wch:20},{wch:13},{wch:28},{wch:13},{wch:16},{wch:40}
   ];
+
+  // Alturas de fila
+  ws['!rows'] = [
+    {hpt:22}, // título
+    {hpt:14}, // fecha
+    {hpt:8},  // vacía
+    {hpt:30}, // encabezados
+    ...activas.map(() => ({hpt:40}))
+  ];
+
+  // Merge título en A1
+  ws['!merges'] = [{ s:{r:0,c:0}, e:{r:0,c:5} }];
 
   XLSX.utils.book_append_sheet(wb, ws, 'Control Actividades');
   XLSX.writeFile(wb, `Terrazul_Actividades_${hoy()}.xlsx`);
