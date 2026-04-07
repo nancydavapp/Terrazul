@@ -232,7 +232,12 @@ td{padding:9px 12px;color:var(--navy);vertical-align:middle}
           <div class="pill" onclick="setPill(this,'terminado')">Terminados</div>
         </div>
       </div>
-      <button class="btn btn-secondary btn-sm" onclick="limpiarFiltros()" style="align-self:flex-end">✕ Limpiar</button>
+      <div style="display:flex;gap:6px;align-self:flex-end;margin-left:auto">
+        <button class="btn btn-secondary btn-sm" onclick="limpiarFiltros()">✕ Limpiar</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportarActividades()">📤 Exportar Excel</button>
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer">📥 Importar Excel<input type="file" id="imp-act-file" accept=".xlsx,.xls" style="display:none" onchange="impActFile(event)"></label>
+        <button class="btn btn-secondary btn-sm" onclick="descargarPlantillaActs()">⬇️ Plantilla</button>
+      </div>
     </div>
     <div style="font-size:12px;color:var(--gray-400);margin-bottom:8px"><span id="count-lbl"></span></div>
     <div class="table-wrap">
@@ -240,6 +245,20 @@ td{padding:9px 12px;color:var(--navy);vertical-align:middle}
         <thead><tr><th style="width:180px">Empresa</th><th style="width:140px">Trámite</th><th>Descripción</th><th>Etapa</th><th>Responsable</th><th style="width:82px">Solicitud</th><th style="width:82px">Objetivo</th><th>Días</th><th>Estado</th><th>Acciones</th></tr></thead>
         <tbody id="acts-tbody"></tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- MODAL IMPORT ACTIVIDADES PREVIEW -->
+  <div class="overlay" id="imp-act-overlay">
+    <div class="modal" style="max-width:800px">
+      <div class="mh"><div class="mt">📋 Vista previa — Importar Actividades</div><button class="xbtn" onclick="document.getElementById('imp-act-overlay').classList.remove('open')">×</button></div>
+      <div class="mb">
+        <div id="imp-act-summary" style="margin-bottom:12px;font-size:13px"></div>
+        <div class="table-wrap" style="max-height:320px;overflow-y:auto">
+          <table><thead><tr><th>Estado</th><th>Empresa</th><th>Trámite</th><th>Responsable</th><th>F. Objetivo</th><th>Detalle</th></tr></thead><tbody id="imp-act-tbody"></tbody></table>
+        </div>
+      </div>
+      <div class="mf"><button class="btn btn-secondary" onclick="document.getElementById('imp-act-overlay').classList.remove('open')">Cancelar</button><button class="btn btn-primary" id="imp-act-btn" onclick="confirmarImpActs()">✅ Importar</button></div>
     </div>
   </div>
 
@@ -610,7 +629,7 @@ function clientes() { return [...new Set(EMPRESAS.map(e=>e[0]))].sort(); }
 // ======================================================
 // GOOGLE SHEETS API
 // ======================================================
-const API_URL = 'https://script.google.com/a/macros/trzl.cl/s/AKfycbxFsMmCpKfQE_fiml702nvhWVXH081I1936slOxDHIDDLMvSDyYezbX0vShRrpL-AtzAQ/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycby_NNKLd5Uh9e40AnyaEKR9gOBWbEBV8ZNXD7RYVOiJCp7UI2HLugwM5_-4STbtIk_tMA/exec';
 
 async function sheetRead(sheet) {
   const r = await fetch(`${API_URL}?action=read&sheet=${sheet}`);
@@ -1291,8 +1310,151 @@ function importarBackup(e) {
 }
 
 // ======================================================
-// TOAST
+// EXPORTAR ACTIVIDADES A EXCEL
 // ======================================================
+function exportarActividades() {
+  const activas = ACTIVIDADES.filter(a => a.etapa !== 'Terminado');
+  if (!activas.length) { toast('No hay actividades activas para exportar','w'); return; }
+
+  const wb = XLSX.utils.book_new();
+
+  // Hoja principal
+  const headerStyle = {font:{bold:true}};
+  const data = [
+    ['Cliente – Empresa','Tarea / Actividad','Descripción','Fecha de solicitud','Responsable del Trámite','Etapa trámite','Fecha objetivo','Ubicación trámite','Días restantes','Estado plazo','Comentarios u observaciones']
+  ];
+
+  activas.forEach(a => {
+    const d = dias(a.obj, a.etapa);
+    const estadoTxt = d === null ? '' : d < 0 ? 'Atrasado' : d <= ad() ? 'Próximo a vencer' : 'Dentro del plazo';
+    data.push([
+      a.empresa, a.tarea, a.desc, a.sol, a.resp,
+      a.etapa, a.obj, a.ubic, d ?? '', estadoTxt, a.obs
+    ]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(data);
+
+  // Anchos de columna
+  ws['!cols'] = [
+    {wch:35},{wch:28},{wch:45},{wch:14},{wch:14},
+    {wch:20},{wch:13},{wch:30},{wch:14},{wch:16},{wch:45}
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Control Actividades');
+  XLSX.writeFile(wb, `Terrazul_Actividades_${hoy()}.xlsx`);
+  toast('Excel exportado correctamente','s');
+}
+
+// ======================================================
+// IMPORTAR ACTIVIDADES DESDE EXCEL
+// ======================================================
+let impActRows = [];
+
+function descargarPlantillaActs() {
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['Cliente','Empresa (nombre visible)','Tarea / Actividad','Descripción','Fecha Solicitud','Responsable','Fecha Objetivo','Etapa','Ubicación / Estado SII','Observaciones'],
+    ['Talinay','Talinay – 77.131.386-8 La Sierra SpA','Verificación de actividad','Descripción del trámite','2026-01-13','Valentín','2026-01-30','Presentación SII','Enviado a SII','Observaciones'],
+  ]);
+  ws['!cols'] = [{wch:12},{wch:35},{wch:28},{wch:35},{wch:14},{wch:12},{wch:13},{wch:20},{wch:28},{wch:35}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Actividades');
+  XLSX.writeFile(wb, 'Plantilla_Importacion_Actividades.xlsx');
+  toast('Plantilla descargada','s');
+}
+
+function impActFile(e) {
+  const file = e.target.files[0]; e.target.value = ''; if(!file) return;
+  const r = new FileReader();
+  r.onload = function(ev) {
+    try {
+      const wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      let hi = 0;
+      for(let i=0;i<Math.min(rows.length,5);i++){if(rows[i].some(c=>String(c).trim())){hi=i;break;}}
+      const hdrs = rows[hi].map(h=>String(h).trim().toLowerCase());
+
+      // Detectar columnas flexiblemente
+      const cCliente  = hdrs.findIndex(h=>h.includes('cliente'));
+      const cEmpresa  = hdrs.findIndex(h=>h.includes('empresa'));
+      const cTarea    = hdrs.findIndex(h=>h.includes('tarea')||h.includes('actividad'));
+      const cDesc     = hdrs.findIndex(h=>h.includes('desc'));
+      const cSol      = hdrs.findIndex(h=>h.includes('solicitud')||h.includes('sol'));
+      const cResp     = hdrs.findIndex(h=>h.includes('responsable'));
+      const cObj      = hdrs.findIndex(h=>h.includes('objetivo')||h.includes('obj'));
+      const cEtapa    = hdrs.findIndex(h=>h.includes('etapa'));
+      const cUbic     = hdrs.findIndex(h=>h.includes('ubicaci')||h.includes('estado sii')||h.includes('ubic'));
+      const cObs      = hdrs.findIndex(h=>h.includes('observ')||h.includes('comentar'));
+
+      if(cEmpresa===-1||cTarea===-1){toast('No encontré columnas Empresa y Tarea','e');return;}
+
+      impActRows = rows.slice(hi+1).filter(r=>r.some(c=>String(c).trim())).map(r=>({
+        cliente: cCliente!==-1 ? String(r[cCliente]||'').trim() : '',
+        empresa: String(r[cEmpresa]||'').trim(),
+        tarea:   String(r[cTarea]||'').trim(),
+        desc:    cDesc!==-1    ? String(r[cDesc]||'').trim()    : '',
+        sol:     cSol!==-1     ? String(r[cSol]||'').trim()     : hoy(),
+        resp:    cResp!==-1    ? String(r[cResp]||'').trim()    : '',
+        obj:     cObj!==-1     ? String(r[cObj]||'').trim()     : '',
+        etapa:   cEtapa!==-1   ? String(r[cEtapa]||'').trim()   : 'Recepción solicitud',
+        ubic:    cUbic!==-1    ? String(r[cUbic]||'').trim()    : '',
+        obs:     cObs!==-1     ? String(r[cObs]||'').trim()     : '',
+      }));
+
+      if(!impActRows.length){toast('El archivo no tiene filas de datos','e');return;}
+      mostrarPrevImpActs();
+    } catch { toast('Error al leer el archivo','e'); }
+  };
+  r.readAsArrayBuffer(file);
+}
+
+function mostrarPrevImpActs() {
+  let ok=0, err=0;
+  const tb = document.getElementById('imp-act-tbody');
+  tb.innerHTML = impActRows.map((r,i) => {
+    let st, badge;
+    if(!r.empresa || !r.tarea) {
+      st='err'; err++;
+      badge=`<span class="badge badge-red">Error</span>`;
+    } else {
+      st='ok'; ok++;
+      badge=`<span class="badge badge-green">Nueva</span>`;
+    }
+    impActRows[i]._st = st;
+    return `<tr style="${st!=='ok'?'opacity:.55':''}">
+      <td>${badge}</td>
+      <td style="font-size:11px">${r.empresa||'—'}</td>
+      <td style="font-weight:500">${r.tarea||'—'}</td>
+      <td>${r.resp||'—'}</td>
+      <td style="font-size:11px">${r.obj||'—'}</td>
+      <td style="font-size:11px;color:var(--gray-400)">${st==='err'?'Faltan datos':''}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('imp-act-summary').innerHTML = `
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <span class="badge badge-green" style="font-size:12px;padding:4px 12px">✓ ${ok} nuevas</span>
+      ${err?`<span class="badge badge-red" style="font-size:12px;padding:4px 12px">✕ ${err} con error</span>`:''}
+    </div>
+    <p style="margin-top:8px;font-size:12px;color:var(--gray-600)">Solo se importarán las filas marcadas como <strong>Nueva</strong>.</p>`;
+
+  document.getElementById('imp-act-btn').textContent = `✅ Importar ${ok} actividad${ok!==1?'es':''}`;
+  document.getElementById('imp-act-btn').disabled = ok===0;
+  document.getElementById('imp-act-overlay').classList.add('open');
+}
+
+function confirmarImpActs() {
+  const validas = impActRows.filter(r=>r._st==='ok');
+  validas.forEach(r => ACTIVIDADES.push({id:nextId++, ...r}));
+  document.getElementById('imp-act-overlay').classList.remove('open');
+  impActRows = [];
+  renderAll();
+  guardarEnSheet();
+  toast(`${validas.length} actividad${validas.length!==1?'es':''} importada${validas.length!==1?'s':''}`,'s');
+}
+
+
 function toast(msg,type='s') {
   const ic={s:'✓',w:'⚠️',e:'✕'};
   const t=document.createElement('div');
