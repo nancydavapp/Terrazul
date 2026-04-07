@@ -752,9 +752,10 @@ async function cargarDesdeSheet() {
       CAT_TAREAS = rC.slice(1).map(r=>String(r[0]).trim()).filter(Boolean);
       CAT_TIEMPOS = {};
       rC.slice(1).forEach(r => {
-        const nombre = String(r[0]).trim();
-        const dias = parseInt(r[1]);
-        if (nombre && !isNaN(dias)) CAT_TIEMPOS[nombre] = dias;
+        const nombre = String(r[0]||'').trim();
+        const raw = String(r[1]||'').trim().replace(/[^0-9]/g,'');
+        const d = parseInt(raw);
+        if (nombre && !isNaN(d) && d > 0) CAT_TIEMPOS[nombre] = d;
       });
     }
     if (rEt.length > 1) CAT_ETAPAS    = rEt.slice(1).map(r=>String(r[0]).trim()).filter(Boolean);
