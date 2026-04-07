@@ -415,6 +415,7 @@ td{padding:9px 12px;color:var(--navy);vertical-align:middle}
           </select>
         </div>
         <div class="fg-full"><label class="fl">Descripción</label><textarea id="f-desc" placeholder="Descripción del trámite..."></textarea></div>
+        <div class="fg-full"><label class="fl">📎 Link a documentos <span style="color:var(--gray-400);font-size:10px">(Google Drive, Dropbox, etc.)</span></label><input type="text" id="f-link" placeholder="https://drive.google.com/..."></div>
         <div class="fg-full"><label class="fl">Comentarios u Observaciones</label><textarea id="f-obs" placeholder="Historial de gestiones, notas..."></textarea></div>
       </div>
     </div>
@@ -575,6 +576,25 @@ let editEmpIdx = null;
 let pillActivo = 'todos';
 let impRows = [];
 
+// Categorías dinámicas — se cargan desde la Sheet
+let CAT_TAREAS = [
+  'Actualización de capital','Actualización de domicilio','Actualización de socios',
+  'Representante legal','Obtención de RUT/Clave','Inicio de actividades',
+  'Verificación de actividad','Término de giro simplificado','Término de giro normal',
+  'Fusión','Peticiones administrativas comunes','Peticiones administrativas especiales','Otra'
+];
+let CAT_ETAPAS = [
+  'Recepción solicitud','Revisión solicitud','Presentación SII',
+  'Respuesta SII','Informar a cliente','Terminado'
+];
+let CAT_UBICACIONES = [
+  'En revisión interna (Valentín)','En revisión interna (Nancy)','En revisión interna (Cristián)',
+  'Devuelto a cliente – Falta antecedentes','Enviado a SII','En revisión SII',
+  'Observado por SII','Rechazado por SII','Devuelto a cliente – Observación SII',
+  'Cliente envía antecedentes faltantes','Enviado a SII - Complemento información',
+  'En revisión SII - Información adicional','Terminado'
+];
+
 // ======================================================
 // HELPERS
 // ======================================================
@@ -670,7 +690,7 @@ function normFecha(val) {
 function rowsToActs(rows) {
   return rows.slice(1).filter(r=>r[0]).map(r=>({
     id:parseInt(r[0]),cliente:r[1],empresa:r[2],tarea:r[3],desc:r[4],
-    sol:normFecha(r[5]),resp:r[6],etapa:r[7],obj:normFecha(r[8]),ubic:r[9],obs:r[10]
+    sol:normFecha(r[5]),resp:r[6],etapa:r[7],obj:normFecha(r[8]),ubic:r[9],obs:r[10],link:r[11]||''
   }));
 }
 function rowsToEmps(rows) {
@@ -682,8 +702,8 @@ function rowsToResps(rows) {
 
 // Convierte objetos → array de arrays para guardar en Sheet
 function actsToRows(acts) {
-  return [['id','cliente','empresa','tarea','desc','sol','resp','etapa','obj','ubic','obs'],
-    ...acts.map(a=>[a.id,a.cliente,a.empresa,a.tarea,a.desc,a.sol,a.resp,a.etapa,a.obj,a.ubic,a.obs])];
+  return [['id','cliente','empresa','tarea','desc','sol','resp','etapa','obj','ubic','obs','link'],
+    ...acts.map(a=>[a.id,a.cliente,a.empresa,a.tarea,a.desc,a.sol,a.resp,a.etapa,a.obj,a.ubic,a.obs,a.link||''])];
 }
 function empsToRows(emps) {
   return [['cliente','rut','nombre'],...emps];
@@ -712,20 +732,26 @@ async function guardarEnSheet(solo = null) {
 async function cargarDesdeSheet() {
   mostrarCargando(true);
   try {
-    const [rA, rE, rR] = await Promise.all([
+    const [rA, rE, rR, rC, rEt, rU] = await Promise.all([
       sheetRead('Actividades'),
       sheetRead('Empresas'),
       sheetRead('Responsables'),
+      sheetRead('Categorias'),
+      sheetRead('Etapas'),
+      sheetRead('Ubicaciones'),
     ]);
+
+    // Cargar categorías dinámicas
+    if (rC.length > 1) CAT_TAREAS     = rC.slice(1).map(r=>String(r[0]).trim()).filter(Boolean);
+    if (rEt.length > 1) CAT_ETAPAS    = rEt.slice(1).map(r=>String(r[0]).trim()).filter(Boolean);
+    if (rU.length > 1) CAT_UBICACIONES = rU.slice(1).map(r=>String(r[0]).trim()).filter(Boolean);
 
     const sheetVacia = rA.length <= 1 && rE.length <= 1 && rR.length <= 1;
 
     if (sheetVacia) {
-      // Solo la primera vez — subir datos iniciales del código
       toast('Iniciando base de datos...','w');
-      await guardarEnSheet();
+      await guardarEnSheet(null);
     } else {
-      // Siempre leer desde la Sheet, nunca sobreescribir al cargar
       if (rA.length > 1) {
         ACTIVIDADES = rowsToActs(rA);
         nextId = Math.max(...ACTIVIDADES.map(a=>a.id)) + 1;
@@ -738,6 +764,7 @@ async function cargarDesdeSheet() {
   }
   mostrarCargando(false);
   sincSelects();
+  poblarSelectsCategorias();
   document.getElementById('f-sol').value = hoy();
   renderAll();
 }
@@ -843,6 +870,7 @@ function renderActs() {
       <td>${estadoBadge(d,a.etapa)}</td>
       <td><div class="td-actions">
         <button class="ib edit" onclick="abrirModal(${a.id})" title="Editar">✏️</button>
+        ${a.link ? `<a href="${a.link}" target="_blank" class="ib" title="Ver documentos" style="text-decoration:none">📎</a>` : ''}
         <button class="ib mail" onclick="emailAct(${a.id})" title="Recordatorio">📧</button>
         <button class="ib del" onclick="eliminarAct(${a.id})" title="Eliminar">🗑️</button>
       </div></td></tr>`;
@@ -1163,7 +1191,22 @@ function sincSelects() {
   poblarEmpresas();
 }
 
-function poblarEmpresas() {
+function poblarSelectsCategorias() {
+  // Tareas
+  const fTarea = document.getElementById('f-tarea');
+  if (fTarea) fTarea.innerHTML = '<option value="">— Seleccionar —</option>' +
+    CAT_TAREAS.map(t=>`<option value="${t}">${t}</option>`).join('');
+
+  // Etapas
+  const fEtapa = document.getElementById('f-etapa');
+  if (fEtapa) fEtapa.innerHTML = CAT_ETAPAS.map(e=>`<option>${e}</option>`).join('');
+
+  // Ubicaciones
+  const fUbic = document.getElementById('f-ubic');
+  if (fUbic) fUbic.innerHTML = CAT_UBICACIONES.map(u=>`<option>${u}</option>`).join('');
+}
+
+
   const c=document.getElementById('f-cliente').value;
   document.getElementById('f-empresa').innerHTML=EMPRESAS
     .filter(e=>e[0]===c)
@@ -1182,6 +1225,7 @@ function autoFecha() {
 function abrirModal(id=null) {
   editActId=id;
   document.getElementById('act-modal-title').textContent=id?'Editar Actividad':'Nueva Actividad';
+  poblarSelectsCategorias();
   poblarEmpresas();
   if(id){
     const a=ACTIVIDADES.find(x=>x.id===id);
@@ -1194,6 +1238,7 @@ function abrirModal(id=null) {
     document.getElementById('f-etapa').value=a.etapa;
     document.getElementById('f-ubic').value=a.ubic;
     document.getElementById('f-desc').value=a.desc;
+    document.getElementById('f-link').value=a.link||'';
     document.getElementById('f-obs').value=a.obs;
   } else {
     document.getElementById('f-cliente').value=''; poblarEmpresas();
@@ -1202,8 +1247,9 @@ function abrirModal(id=null) {
     document.getElementById('f-sol').value=hoy();
     document.getElementById('f-obj').value='';
     document.getElementById('f-etapa').value='Recepción solicitud';
-    document.getElementById('f-ubic').value='En revisión interna (Valentín)';
+    document.getElementById('f-ubic').value=CAT_UBICACIONES[0]||'';
     document.getElementById('f-desc').value='';
+    document.getElementById('f-link').value='';
     document.getElementById('f-obs').value='';
   }
   document.getElementById('act-overlay').classList.add('open');
@@ -1223,6 +1269,7 @@ function guardarAct() {
     obj:document.getElementById('f-obj').value,
     ubic:document.getElementById('f-ubic').value,
     obs:document.getElementById('f-obs').value,
+    link:document.getElementById('f-link').value,
   };
   if(!a.tarea||!a.empresa||!a.obj){toast('Completá tarea, empresa y fecha objetivo','e');return;}
   if(editActId){
