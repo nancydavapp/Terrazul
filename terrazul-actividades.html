@@ -629,7 +629,7 @@ function clientes() { return [...new Set(EMPRESAS.map(e=>e[0]))].sort(); }
 // ======================================================
 // GOOGLE SHEETS API
 // ======================================================
-const API_URL = 'https://script.google.com/macros/s/AKfycby_NNKLd5Uh9e40AnyaEKR9gOBWbEBV8ZNXD7RYVOiJCp7UI2HLugwM5_-4STbtIk_tMA/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwC0IapEcpTNYW_qgPUMJzKHNiWh5CC0IlU-1-_GSHRThzqwPcOSRQknrI9pfWUVBF5/exec';
 
 async function sheetRead(sheet) {
   const r = await fetch(`${API_URL}?action=read&sheet=${sheet}`);
@@ -637,8 +637,10 @@ async function sheetRead(sheet) {
 }
 
 async function sheetWrite(sheet, data) {
-  const encoded = encodeURIComponent(JSON.stringify(data));
-  await fetch(`${API_URL}?action=write&sheet=${sheet}&data=${encoded}`);
+  await fetch(API_URL, {
+    method: 'POST',
+    body: JSON.stringify({sheet, data}),
+  });
 }
 
 // Convierte array de arrays (Sheet) → array de objetos
