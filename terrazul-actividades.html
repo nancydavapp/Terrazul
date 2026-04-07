@@ -637,10 +637,8 @@ async function sheetRead(sheet) {
 }
 
 async function sheetWrite(sheet, data) {
-  await fetch(API_URL, {
-    method:'POST',
-    body: JSON.stringify({sheet, data}),
-  });
+  const encoded = encodeURIComponent(JSON.stringify(data));
+  await fetch(`${API_URL}?action=write&sheet=${sheet}&data=${encoded}`);
 }
 
 // Convierte array de arrays (Sheet) → array de objetos
