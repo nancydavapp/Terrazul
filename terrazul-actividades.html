@@ -643,11 +643,34 @@ async function sheetWrite(sheet, data) {
   });
 }
 
+
+// Normaliza fechas que vienen de Google Sheets en distintos formatos
+function normFecha(val) {
+  if (!val) return '';
+  const s = String(val).trim();
+  // Ya está en formato YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // Formato ISO: 2026-01-13T03:00:00.000Z
+  if (s.includes('T')) {
+    const d = new Date(s);
+    if (!isNaN(d)) return d.toISOString().split('T')[0];
+  }
+  // Número serial de Excel/Sheets
+  if (/^\d+$/.test(s)) {
+    const d = new Date((parseInt(s) - 25569) * 86400000);
+    if (!isNaN(d)) return d.toISOString().split('T')[0];
+  }
+  // Formato DD/MM/YYYY
+  const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`;
+  return s;
+}
+
 // Convierte array de arrays (Sheet) → array de objetos
 function rowsToActs(rows) {
   return rows.slice(1).filter(r=>r[0]).map(r=>({
     id:parseInt(r[0]),cliente:r[1],empresa:r[2],tarea:r[3],desc:r[4],
-    sol:r[5],resp:r[6],etapa:r[7],obj:r[8],ubic:r[9],obs:r[10]
+    sol:normFecha(r[5]),resp:r[6],etapa:r[7],obj:normFecha(r[8]),ubic:r[9],obs:r[10]
   }));
 }
 function rowsToEmps(rows) {
@@ -690,12 +713,19 @@ async function cargarDesdeSheet() {
       sheetRead('Empresas'),
       sheetRead('Responsables'),
     ]);
-    // Si la sheet está vacía usamos datos iniciales y los subimos
-    if (rA.length <= 1 && rE.length <= 1 && rR.length <= 1) {
-      toast('Sheet vacía — cargando datos iniciales...','w');
+
+    const sheetVacia = rA.length <= 1 && rE.length <= 1 && rR.length <= 1;
+
+    if (sheetVacia) {
+      // Solo la primera vez — subir datos iniciales del código
+      toast('Iniciando base de datos...','w');
       await guardarEnSheet();
     } else {
-      if (rA.length > 1) { ACTIVIDADES = rowsToActs(rA); nextId = Math.max(...ACTIVIDADES.map(a=>a.id))+1; }
+      // Siempre leer desde la Sheet, nunca sobreescribir al cargar
+      if (rA.length > 1) {
+        ACTIVIDADES = rowsToActs(rA);
+        nextId = Math.max(...ACTIVIDADES.map(a=>a.id)) + 1;
+      }
       if (rE.length > 1) EMPRESAS = rowsToEmps(rE);
       if (rR.length > 1) RESPONSABLES = rowsToResps(rR);
     }
