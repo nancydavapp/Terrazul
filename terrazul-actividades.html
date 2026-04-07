@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terrazul – Control de Actividades</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy:#0f1c2e; --teal:#1a7f7f; --teal-light:#26b5b5; --teal-pale:#e0f4f4;
+  --gold:#c9a84c; --red:#c0392b; --red-light:#f9d6d3; --green:#1e7e47;
+  --green-light:#d4f0e0; --amber:#c07a00; --amber-light:#fff0cc;
+  --gray-100:#f4f6f9; --gray-200:#e4e9f0; --gray-400:#9ba8ba; --gray-600:#5a6a7e;
+  --white:#fff; --fd:'DM Serif Display',serif; --fb:'DM Sans',sans-serif;
+  --sh:0 1px 4px rgba(15,28,46,.08); --shm:0 4px 20px rgba(15,28,46,.12);
+  --shl:0 8px 40px rgba(15,28,46,.18); --r:12px; --rs:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--fb);background:var(--gray-100);color:var(--navy);min-height:100vh}
+
+/* SIDEBAR */
+.sidebar{position:fixed;top:0;left:0;width:252px;height:100vh;background:var(--navy);display:flex;flex-direction:column;z-index:100}
+.logo-wrap{padding:22px 20px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+.logo-name{font-family:var(--fd);font-size:20px;color:#fff}
+.logo-sub{font-size:10px;color:var(--teal-light);letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+.nav{flex:1;padding:12px 8px;overflow-y:auto}
+.nav-sec{font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--gray-400);padding:10px 12px 4px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:var(--rs);cursor:pointer;color:rgba(255,255,255,.6);font-size:13px;transition:all .15s;margin-bottom:1px;user-select:none}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav-item.active{background:rgba(26,127,127,.25);color:var(--teal-light);font-weight:500}
+.sidebar-footer{padding:12px 20px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:var(--gray-400)}
+
+/* MAIN */
+.main{margin-left:252px;min-height:100vh}
+.topbar{background:#fff;padding:12px 26px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--gray-200);position:sticky;top:0;z-index:50;box-shadow:var(--sh);gap:10px;flex-wrap:wrap}
+.topbar-title{font-family:var(--fd);font-size:18px}
+.topbar-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:var(--rs);font-family:var(--fb);font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--teal);color:#fff}.btn-primary:hover{background:#156666}
+.btn-secondary{background:var(--gray-100);color:var(--navy);border:1px solid var(--gray-200)}.btn-secondary:hover{background:var(--gray-200)}
+.btn-gold{background:var(--gold);color:#fff}.btn-gold:hover{background:#b5943e}
+.btn-sm{padding:5px 11px;font-size:12px}
+
+/* PAGES */
+.page{display:none;padding:22px 26px}
+.page.active{display:block}
+
+/* CARDS */
+.card{background:#fff;border-radius:var(--r);border:1px solid var(--gray-200);box-shadow:var(--sh)}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:#fff;border-radius:var(--r);padding:16px 18px;box-shadow:var(--sh);border:1px solid var(--gray-200);position:relative;overflow:hidden}
+.stat-card::after{content:'';position:absolute;bottom:0;left:0;height:3px;width:100%}
+.stat-card.c-total::after{background:var(--teal)}.stat-card.c-red::after{background:var(--red)}
+.stat-card.c-green::after{background:var(--green)}.stat-card.c-amber::after{background:var(--gold)}
+.stat-label{font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--gray-400);margin-bottom:5px}
+.stat-num{font-family:var(--fd);font-size:32px;line-height:1}
+.stat-sub{font-size:11px;color:var(--gray-400);margin-top:3px}
+
+/* FILTERS */
+.filters-bar{background:#fff;border-radius:var(--r);padding:12px 16px;margin-bottom:14px;box-shadow:var(--sh);border:1px solid var(--gray-200);display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.filter-group{display:flex;flex-direction:column;gap:4px}
+.filter-label{font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--gray-400)}
+
+/* INPUTS */
+select,input[type=text],input[type=date],input[type=email],input[type=number],textarea{font-family:var(--fb);font-size:13px;border:1px solid var(--gray-200);border-radius:var(--rs);padding:7px 10px;color:var(--navy);background:#fff;outline:none;transition:border-color .15s,box-shadow .15s;width:100%}
+select:focus,input:focus,textarea:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(26,127,127,.12)}
+textarea{resize:vertical;min-height:60px;line-height:1.5}
+
+/* PILLS */
+.pill-filter{display:flex;gap:5px;flex-wrap:wrap}
+.pill{padding:4px 11px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1.5px solid var(--gray-200);background:#fff;color:var(--gray-600);transition:all .15s;user-select:none}
+.pill:hover{border-color:var(--teal);color:var(--teal)}
+.pill.active{background:var(--teal);border-color:var(--teal);color:#fff}
+
+/* TABLE */
+.table-wrap{background:#fff;border-radius:var(--r);box-shadow:var(--sh);border:1px solid var(--gray-200);overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{background:var(--navy);color:rgba(255,255,255,.85);padding:10px 12px;text-align:left;font-weight:500;font-size:10px;letter-spacing:.8px;text-transform:uppercase;white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--gray-200);transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--gray-100)}
+td{padding:9px 12px;color:var(--navy);vertical-align:middle}
+.no-rows{text-align:center;padding:26px;color:var(--gray-400);font-size:13px}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;white-space:nowrap}
+.badge-red{background:var(--red-light);color:var(--red)}
+.badge-green{background:var(--green-light);color:var(--green)}
+.badge-amber{background:var(--amber-light);color:var(--amber)}
+.badge-teal{background:var(--teal-pale);color:var(--teal)}
+.badge-gray{background:var(--gray-200);color:var(--gray-600)}
+
+/* DIAS CHIP */
+.dc{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.dc-late{background:var(--red-light);color:var(--red)}
+.dc-warn{background:var(--amber-light);color:var(--amber)}
+.dc-ok{background:var(--green-light);color:var(--green)}
+
+/* ICON BUTTONS */
+.td-actions{display:flex;gap:4px}
+.ib{width:27px;height:27px;border-radius:6px;border:1px solid var(--gray-200);background:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:13px;transition:all .15s}
+.ib:hover{background:var(--gray-100)}
+.ib.edit:hover{background:var(--teal-pale);border-color:var(--teal)}
+.ib.del:hover{background:var(--red-light);border-color:var(--red)}
+.ib.mail:hover{background:var(--amber-light);border-color:var(--amber)}
+
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(15,28,46,.55);backdrop-filter:blur(4px);z-index:200;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:var(--r);box-shadow:var(--shl);width:660px;max-width:95vw;max-height:90vh;overflow-y:auto;animation:su .2s ease}
+@keyframes su{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
+.mh{padding:18px 24px 14px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;justify-content:space-between}
+.mt{font-family:var(--fd);font-size:18px}
+.mb{padding:20px 24px}
+.mf{padding:12px 24px;border-top:1px solid var(--gray-200);display:flex;gap:8px;justify-content:flex-end}
+.xbtn{background:none;border:none;font-size:22px;cursor:pointer;color:var(--gray-400);line-height:1}.xbtn:hover{color:var(--navy)}
+
+/* FORM GRID */
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fg-full{grid-column:1/-1}
+.fl{font-size:11px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px}
+
+/* RESPONSABLE CARD */
+.rc{background:#fff;border-radius:var(--r);border:1px solid var(--gray-200);padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;box-shadow:var(--sh)}
+.av{width:40px;height:40px;border-radius:50%;background:var(--teal);display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:16px;color:#fff;flex-shrink:0}
+
+/* SECTION TITLE */
+.stitle{font-family:var(--fd);font-size:15px;margin-bottom:12px;color:var(--navy)}
+
+/* REMINDER CARD */
+.rmc{background:#fff;border-radius:var(--r);border:1px solid var(--gray-200);padding:18px 20px;margin-bottom:14px;box-shadow:var(--sh)}
+.toggle{width:36px;height:20px;background:var(--gray-200);border-radius:10px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;border:none}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.toggle.on{background:var(--teal)}.toggle.on::after{transform:translateX(16px)}
+
+/* EMAIL PREVIEW */
+.eprev{background:var(--gray-100);border-radius:var(--rs);padding:12px;font-size:12px;line-height:1.7;color:var(--navy);border:1px solid var(--gray-200);white-space:pre-wrap}
+
+/* IMPORT DROPZONE */
+.dz{border:2px dashed var(--gray-200);border-radius:var(--rs);padding:16px;text-align:center;cursor:pointer;transition:all .2s;background:var(--gray-100)}
+.dz:hover,.dz.over{border-color:var(--teal);background:var(--teal-pale)}
+
+/* SEARCH */
+.sw{position:relative}.sw input{padding-left:28px}
+.si{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--gray-400);font-size:13px;pointer-events:none}
+
+/* CLIENTE GROUP */
+.cgh{font-family:var(--fd);font-size:13px;padding:8px 14px;background:var(--navy);color:#fff;border-radius:var(--rs) var(--rs) 0 0;display:flex;align-items:center;justify-content:space-between}
+
+/* TOAST */
+.toast-ct{position:fixed;bottom:18px;right:18px;z-index:999;display:flex;flex-direction:column;gap:6px}
+.toast{background:var(--navy);color:#fff;padding:10px 14px;border-radius:var(--rs);font-size:13px;box-shadow:var(--shl);display:flex;align-items:center;gap:8px;animation:ti .2s ease;max-width:300px}
+@keyframes ti{from{transform:translateX(40px);opacity:0}to{transform:translateX(0);opacity:1}}
+.toast.s{border-left:3px solid var(--teal-light)}.toast.w{border-left:3px solid var(--gold)}.toast.e{border-left:3px solid var(--red)}
+
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--gray-200);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo-wrap">
+    <div class="logo-name">Terrazul</div>
+    <div class="logo-sub">Control de Actividades</div>
+  </div>
+  <nav class="nav">
+    <div class="nav-sec">Principal</div>
+    <div class="nav-item active" onclick="nav('dashboard',this)">📋 Panel de Control</div>
+    <div class="nav-item" onclick="nav('actividades',this)">✅ Actividades</div>
+    <div class="nav-sec">Configuración</div>
+    <div class="nav-item" onclick="nav('responsables',this)">👤 Responsables</div>
+    <div class="nav-item" onclick="nav('admin-resp',this)">⚙️ Administrar Responsables</div>
+    <div class="nav-item" onclick="nav('clientes',this)">🏢 Clientes y Empresas</div>
+    <div class="nav-item" onclick="nav('admin-emp',this)">⚙️ Administrar Empresas</div>
+    <div class="nav-item" onclick="nav('recordatorios',this)">📧 Recordatorios</div>
+  </nav>
+  <div class="sidebar-footer">v2.0 · Terrazul 2026</div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="page-title">Panel de Control</div>
+    <div class="topbar-actions">
+      <button class="btn btn-secondary" onclick="exportarBackup()">💾 Exportar backup</button>
+      <label class="btn btn-secondary" style="cursor:pointer">📂 Importar backup<input type="file" id="bk-file" accept=".json" style="display:none" onchange="importarBackup(event)"></label>
+      <button class="btn btn-primary" onclick="abrirModal()">＋ Nueva Actividad</button>
+      <button class="btn btn-gold" onclick="enviarRecordatorios()">📧 Recordatorios</button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="page active" id="page-dashboard">
+    <div class="stats-grid" id="stats-grid"></div>
+    <div class="stitle">⚠️ Actividades Atrasadas o con Alerta</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Empresa</th><th>Trámite</th><th>Etapa</th><th>Responsable</th><th>Ubicación</th><th>Días</th><th>Estado</th></tr></thead>
+        <tbody id="alert-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ACTIVIDADES -->
+  <div class="page" id="page-actividades">
+    <div class="filters-bar">
+      <div class="filter-group">
+        <span class="filter-label">Buscar</span>
+        <div class="sw"><span class="si">🔍</span><input type="text" id="s-buscar" placeholder="Empresa, trámite..." style="width:200px" oninput="renderActs()"></div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Cliente</span>
+        <select id="s-cliente" onchange="renderActs()" style="width:120px"><option value="">Todos</option></select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Responsable</span>
+        <select id="s-resp" onchange="renderActs()" style="width:130px"><option value="">Todos</option></select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Estado</span>
+        <div class="pill-filter" id="pill-estado">
+          <div class="pill active" onclick="setPill(this,'todos')">Todos</div>
+          <div class="pill" onclick="setPill(this,'atrasado')">Atrasados</div>
+          <div class="pill" onclick="setPill(this,'alerta')">Alerta</div>
+          <div class="pill" onclick="setPill(this,'ok')">En plazo</div>
+          <div class="pill" onclick="setPill(this,'terminado')">Terminados</div>
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="limpiarFiltros()" style="align-self:flex-end">✕ Limpiar</button>
+    </div>
+    <div style="font-size:12px;color:var(--gray-400);margin-bottom:8px"><span id="count-lbl"></span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:180px">Empresa</th><th style="width:140px">Trámite</th><th>Descripción</th><th>Etapa</th><th>Responsable</th><th style="width:82px">Solicitud</th><th style="width:82px">Objetivo</th><th>Días</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <tbody id="acts-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- RESPONSABLES -->
+  <div class="page" id="page-responsables"><div id="resp-list"></div></div>
+
+  <!-- ADMIN RESPONSABLES -->
+  <div class="page" id="page-admin-resp">
+    <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:18px">
+      <div class="rmc" style="flex:1;min-width:280px;max-width:360px">
+        <div class="stitle" id="ar-title">➕ Agregar Responsable</div>
+        <div style="margin-bottom:10px"><label class="fl">Nombre</label><input type="text" id="ar-nombre" placeholder="Nombre completo"></div>
+        <div style="margin-bottom:14px"><label class="fl">Email</label><input type="email" id="ar-email" placeholder="correo@terrazul.cl"></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" style="flex:1" onclick="guardarResp()">Guardar</button>
+          <button class="btn btn-secondary" onclick="cancelarResp()">Cancelar</button>
+        </div>
+      </div>
+      <div style="flex:1;min-width:200px"><div class="stats-grid" style="grid-template-columns:1fr 1fr;margin-bottom:0" id="ar-stats"></div></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Avatar</th><th>Nombre</th><th>Email</th><th>Activas</th><th>Atrasadas</th><th>Acciones</th></tr></thead>
+        <tbody id="ar-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CLIENTES -->
+  <div class="page" id="page-clientes"><div id="clientes-content"></div></div>
+
+  <!-- ADMIN EMPRESAS -->
+  <div class="page" id="page-admin-emp">
+    <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:18px">
+      <div class="rmc" style="flex:1;min-width:300px;max-width:400px">
+        <div class="stitle" id="ae-title">➕ Agregar Empresa</div>
+        <div style="margin-bottom:10px">
+          <label class="fl">Cliente (grupo)</label>
+          <select id="ae-cliente" style="margin-bottom:6px"><option value="">— Seleccionar —</option></select>
+          <div style="display:flex;gap:8px;align-items:center"><span style="font-size:11px;color:var(--gray-400);white-space:nowrap">o nuevo:</span><input type="text" id="ae-cliente-nuevo" placeholder="Nombre nuevo cliente"></div>
+        </div>
+        <div style="margin-bottom:10px"><label class="fl">RUT</label><input type="text" id="ae-rut" placeholder="77.123.456-7"></div>
+        <div style="margin-bottom:14px"><label class="fl">Nombre Empresa</label><input type="text" id="ae-nombre" placeholder="Nombre SpA"></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" style="flex:1" onclick="guardarEmp()">Guardar</button>
+          <button class="btn btn-secondary" onclick="cancelarEmp()">Cancelar</button>
+        </div>
+      </div>
+      <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:14px">
+        <div class="stats-grid" style="grid-template-columns:1fr 1fr;margin-bottom:0" id="ae-stats"></div>
+        <div class="rmc" style="margin-bottom:0">
+          <div class="stitle" style="font-size:13px;margin-bottom:8px">📥 Importar desde Excel</div>
+          <p style="font-size:12px;color:var(--gray-600);margin-bottom:10px;line-height:1.5">Archivo <strong>.xlsx</strong> con columnas:<br><span style="font-family:monospace;font-size:11px;color:var(--teal)">Cliente | RUT | Empresa</span></p>
+          <div class="dz" id="dz" onclick="document.getElementById('imp-file').click()" ondragover="dzOver(event)" ondragleave="dzLeave()" ondrop="dzDrop(event)">
+            <div style="font-size:22px;margin-bottom:5px">📂</div>
+            <div style="font-size:12px;font-weight:600">Arrastrá o hacé clic</div>
+          </div>
+          <input type="file" id="imp-file" accept=".xlsx,.xls" style="display:none" onchange="impFile(event)">
+          <button class="btn btn-secondary btn-sm" style="width:100%;margin-top:8px" onclick="descargarPlantilla()">⬇️ Descargar plantilla</button>
+        </div>
+      </div>
+    </div>
+    <div class="filters-bar" style="margin-bottom:12px">
+      <div class="filter-group"><span class="filter-label">Buscar</span><div class="sw"><span class="si">🔍</span><input type="text" id="ae-buscar" placeholder="RUT o nombre..." style="width:200px" oninput="renderEmpAdmin()"></div></div>
+      <div class="filter-group"><span class="filter-label">Filtrar cliente</span><select id="ae-filter" onchange="renderEmpAdmin()" style="width:140px"><option value="">Todos</option></select></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Cliente</th><th>RUT</th><th>Empresa</th><th>Trámites activos</th><th>Acciones</th></tr></thead>
+        <tbody id="ae-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- RECORDATORIOS -->
+  <div class="page" id="page-recordatorios">
+    <div class="rmc">
+      <div class="stitle">⚙️ Configuración de Recordatorios</div>
+      <p style="font-size:13px;color:var(--gray-600);margin-bottom:16px">Define cuándo se envían alertas automáticas a los responsables.</p>
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--gray-100);border-radius:var(--rs);margin-bottom:10px">
+        <button class="toggle on" onclick="this.classList.toggle('on')"></button>
+        <div style="flex:1"><div style="font-weight:600;font-size:13px">Actividades Atrasadas</div><div style="font-size:11px;color:var(--gray-400)">Notificar cuando la fecha objetivo ya venció</div></div>
+        <span class="badge badge-red">Urgente</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--gray-100);border-radius:var(--rs);margin-bottom:10px">
+        <button class="toggle on" onclick="this.classList.toggle('on')"></button>
+        <div style="flex:1"><div style="font-weight:600;font-size:13px">Próximas a vencer — menos de <input type="number" id="alert-days" value="5" min="1" max="30" style="width:42px;display:inline;padding:2px 4px" onchange="renderAll()"> días</div></div>
+        <span class="badge badge-amber">Alerta</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--gray-100);border-radius:var(--rs);margin-bottom:14px">
+        <button class="toggle" onclick="this.classList.toggle('on')"></button>
+        <div style="flex:1"><div style="font-weight:600;font-size:13px">Resumen Semanal (lunes)</div></div>
+        <span class="badge badge-teal">Semanal</span>
+      </div>
+      <div><label class="fl">Email con copia (CC)</label><input type="email" id="cc-email" placeholder="supervisor@terrazul.cl" style="width:280px"></div>
+    </div>
+    <div class="stitle">📨 Recordatorios Pendientes</div>
+    <div id="rem-preview"></div>
+  </div>
+</main>
+
+<!-- MODAL IMPORT PREVIEW -->
+<div class="overlay" id="imp-overlay">
+  <div class="modal" style="max-width:680px">
+    <div class="mh"><div class="mt">📋 Vista previa — Importación</div><button class="xbtn" onclick="cerrarImpModal()">×</button></div>
+    <div class="mb">
+      <div id="imp-summary" style="margin-bottom:12px;font-size:13px"></div>
+      <div class="table-wrap" style="max-height:320px;overflow-y:auto">
+        <table><thead><tr><th>Estado</th><th>Cliente</th><th>RUT</th><th>Empresa</th><th>Detalle</th></tr></thead><tbody id="imp-tbody"></tbody></table>
+      </div>
+    </div>
+    <div class="mf"><button class="btn btn-secondary" onclick="cerrarImpModal()">Cancelar</button><button class="btn btn-primary" id="imp-btn" onclick="confirmarImp()">✅ Importar</button></div>
+  </div>
+</div>
+
+<!-- MODAL ACTIVIDAD -->
+<div class="overlay" id="act-overlay">
+  <div class="modal">
+    <div class="mh"><div class="mt" id="act-modal-title">Nueva Actividad</div><button class="xbtn" onclick="cerrarModal()">×</button></div>
+    <div class="mb">
+      <div class="fg">
+        <div><label class="fl">Cliente</label><select id="f-cliente" onchange="poblarEmpresas()"><option value="">— Seleccionar —</option></select></div>
+        <div><label class="fl">Empresa</label><select id="f-empresa"></select></div>
+        <div><label class="fl">Tarea / Actividad</label>
+          <select id="f-tarea" onchange="autoFecha()">
+            <option value="">— Seleccionar —</option>
+            <option>Actualización de capital</option><option>Actualización de domicilio</option>
+            <option>Actualización de socios</option><option>Representante legal</option>
+            <option>Obtención de RUT/Clave</option><option>Inicio de actividades</option>
+            <option>Verificación de actividad</option><option>Término de giro simplificado</option>
+            <option>Término de giro normal</option><option>Fusión</option>
+            <option>Peticiones administrativas comunes</option><option>Peticiones administrativas especiales</option>
+            <option>Otra</option>
+          </select>
+        </div>
+        <div><label class="fl">Responsable</label><select id="f-resp"></select></div>
+        <div><label class="fl">Fecha Solicitud</label><input type="date" id="f-sol"></div>
+        <div><label class="fl">Fecha Objetivo <span style="color:var(--teal);font-size:10px">(auto)</span></label><input type="date" id="f-obj"></div>
+        <div><label class="fl">Etapa</label>
+          <select id="f-etapa">
+            <option>Recepción solicitud</option><option>Revisión solicitud</option>
+            <option>Presentación SII</option><option>Respuesta SII</option>
+            <option>Informar a cliente</option><option>Terminado</option>
+          </select>
+        </div>
+        <div><label class="fl">Ubicación / Estado SII</label>
+          <select id="f-ubic">
+            <option>En revisión interna (Valentín)</option><option>En revisión interna (Nancy)</option>
+            <option>En revisión interna (Cristián)</option><option>Devuelto a cliente – Falta antecedentes</option>
+            <option>Enviado a SII</option><option>En revisión SII</option><option>Observado por SII</option>
+            <option>Rechazado por SII</option><option>Devuelto a cliente – Observación SII</option>
+            <option>Cliente envía antecedentes faltantes</option><option>Enviado a SII - Complemento información</option>
+            <option>En revisión SII - Información adicional</option><option>Terminado</option>
+          </select>
+        </div>
+        <div class="fg-full"><label class="fl">Descripción</label><textarea id="f-desc" placeholder="Descripción del trámite..."></textarea></div>
+        <div class="fg-full"><label class="fl">Comentarios u Observaciones</label><textarea id="f-obs" placeholder="Historial de gestiones, notas..."></textarea></div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn btn-secondary" onclick="cerrarModal()">Cancelar</button><button class="btn btn-primary" onclick="guardarAct()">Guardar</button></div>
+  </div>
+</div>
+
+<!-- MODAL EMAIL -->
+<div class="overlay" id="email-overlay">
+  <div class="modal" style="max-width:540px">
+    <div class="mh"><div class="mt">📧 Enviar Recordatorio</div><button class="xbtn" onclick="cerrarEmail()">×</button></div>
+    <div class="mb">
+      <div style="margin-bottom:10px"><label class="fl">Para</label><input type="email" id="em-to" style="background:var(--gray-100)"></div>
+      <div style="margin-bottom:10px"><label class="fl">Asunto</label><input type="text" id="em-subj"></div>
+      <div><label class="fl">Mensaje (editable)</label><div class="eprev" id="em-body" contenteditable="true" style="max-height:260px;overflow-y:auto"></div></div>
+    </div>
+    <div class="mf"><button class="btn btn-secondary" onclick="cerrarEmail()">Cancelar</button><button class="btn btn-gold" onclick="enviarEmail()">📤 Abrir en correo</button></div>
+  </div>
+</div>
+
+<div class="toast-ct" id="toast-ct"></div>
+
+<script>
+// ======================================================
+// DATOS INICIALES
+// ======================================================
+let RESPONSABLES = [
+  {nombre:'Valentín', email:'valentin@terrazul.cl'},
+  {nombre:'Nancy',    email:'nancy@terrazul.cl'},
+  {nombre:'Cristián', email:'cristian@terrazul.cl'},
+];
+
+let EMPRESAS = [
+  ['Talinay','77.088.094-7','Licancabur De Verano SpA'],
+  ['Talinay','77.498.289-2','PMGD Holdco SpA'],
+  ['Talinay','76.450.335-K','PMGD Mauco SpA'],
+  ['Talinay','77.470.274-1','Parque Solar Alagua SpA'],
+  ['Talinay','76.528.806-1','Diana Solar SpA'],
+  ['Talinay','76.618.678-5','Peteroa Energy SpA'],
+  ['Talinay','76.876.835-8','Acotango De Verano SpA'],
+  ['Talinay','76.876.858-7','Paniri De Verano SpA'],
+  ['Talinay','76.991.751-9','PMGD Pepa SpA'],
+  ['Talinay','76.991.760-8','PMGD Darlin SpA'],
+  ['Talinay','77.257.259-K','Solar E SpA'],
+  ['Talinay','76.605.075-1','Los Girasoles SpA'],
+  ['Talinay','76.693.239-8','PMGD Santuario SpA'],
+  ['Talinay','76.378.964-0','Parque Solar Luna Del Norte SpA'],
+  ['Talinay','76.228.791-9','Parque Solar Sol Del Norte SpA'],
+  ['Talinay','76.540.822-9','Árbol SpA'],
+  ['Talinay','76.839.906-9','PMGD Cruz SpA'],
+  ['Talinay','77.223.376-0','Parque Solar Lo Prado SpA'],
+  ['Talinay','77.223.377-9','Parque Solar La Muralla Dos SpA'],
+  ['Talinay','76.827.442-8','Parque Solar La Rosa SpA'],
+  ['Talinay','77.324.635-1','Parque Solar Quilmo SpA'],
+  ['Talinay','76.902.197-3','Parque Solar Altos Lao SpA'],
+  ['Talinay','77.465.297-3','Parque Solar Jotabeche SpA'],
+  ['Talinay','77.470.299-7','Parque Solar El Trigal SpA'],
+  ['Talinay','76.780.504-7','Tralka SpA'],
+  ['Talinay','76.461.945-5','PV La Frontera SpA'],
+  ['Talinay','76.805.091-0','PV Los Gorriones SpA'],
+  ['Talinay','76.845.123-0','PV Los Patos SpA'],
+  ['Talinay','76.461.861-0','PV Portezuelo SpA'],
+  ['Talinay','76.515.583-5','PV Libertadores SpA'],
+  ['Talinay','76.744.083-9','PV El Pilpen SpA'],
+  ['Talinay','76.805.093-7','PV El Cernicalo SpA'],
+  ['Talinay','76.367.198-4','Parque Solar Cuz Cuz SpA'],
+  ['Talinay','76.730.378-5','PV Las Turcas SpA'],
+  ['Talinay','76.744.082-0','PV El Queltehue SpA'],
+  ['Talinay','76.567.528-6','PV Chancon SpA'],
+  ['Talinay','76.830.065-8','PV El Pitio SpA'],
+  ['Talinay','76.845.124-9','PV Las Palomas SpA'],
+  ['Talinay','76.860.789-3','PV El Picurio SpA'],
+  ['Talinay','76.462.109-3','PV Rodeo SpA'],
+  ['Talinay','76.860.793-1','PV El Chincol SpA'],
+  ['Talinay','76.451.214-6','PV Rovian SpA'],
+  ['Talinay','76.748.838-6','PV Doñihue SpA'],
+  ['Talinay','77.810.911-5','Antu Energy SpA'],
+  ['Talinay','77.379.321-2','Malloco Solar SpA'],
+  ['Talinay','77.479.026-8','Amanecer Solar SpA'],
+  ['Talinay','77.131.386-8','La Sierra SpA'],
+  ['Talinay','76.966.021-6','El Cóndor Solar SpA'],
+  ['Talinay','77.240.056-K','Porota Solar SpA'],
+  ['Talinay','77.324.561-4','Parque Solar La Rosa II SpA'],
+  ['Talinay','77.324.643-2','Parque Solar Villa Longaví SpA'],
+  ['Talinay','76.930.379-0','Parque Solar Convento SpA'],
+  ['Talinay','77.465.299-K','Parque Solar Roma SpA'],
+  ['Talinay','77.465.291-4','Parque Solar Doña Berta SpA'],
+  ['Talinay','77.794.929-2','Inversiones Malloco SpA'],
+  ['Talinay','77.794.931-4','Inversiones Amanecer SpA'],
+  ['Talinay','76.630.002-2','Inversiones El Cóndor SpA'],
+  ['Talinay','76.629.905-9','Inversiones La Sierra SpA'],
+  ['Talinay','76.630.138-K','Inversiones Porota SpA'],
+  ['RRG','77.050.590-9','RRG Chile SpA'],
+  ['RRG','77.826.634-2','RRG NBS Chile SpA'],
+  ['RRG','76.960.318-2','Huemul Chile SpA'],
+  ['RRG','77.050.587-9','Raíces de Capital SpA'],
+  ['RRG','76.930.611-0','El Retorno SpA'],
+  ['RRG','77.398.395-K','Corylus OpCo SpA'],
+  ['RRG','77.398.394-1','Corylus LandCo SpA'],
+  ['RRG','77.122.311-7','Persea OpCo SpA'],
+  ['RRG','77.122.333-8','Persea Landco SpA'],
+  ['RRG','77.359.669-7','Agrícola Koompartu SpA'],
+  ['RRG','77.359.667-0','Agrícola Nambucca SpA'],
+  ['RRG','77.282.219-7','Tunki Holdings SpA'],
+  ['RRG','76.528.525-9','Parronales Tinamou Agrícola Limitada'],
+  ['RRG','78.338.025-0','Andes Hazelnuts Landco SpA'],
+  ['RRG','78.338.029-3','Andes Hazelnuts Opco SpA'],
+  ['RRG','76.963.336-7','Cedars Solar SpA'],
+  ['RRG','76.618.669-6','Lascar Energy SpA'],
+  ['RRG','76.618.666-1','Puntiagudo Energy SpA'],
+];
+
+let ACTIVIDADES = [
+  {id:1,cliente:'Talinay',empresa:'Talinay – 77.131.386-8 La Sierra SpA',tarea:'Verificación de actividad',
+   desc:'Solicitud de verificacion de actividad de La Sierra SpA para comenzar a facturar con IVA.',
+   sol:'2026-01-13',resp:'Valentín',etapa:'Presentación SII',obj:'2026-01-30',ubic:'Enviado a SII',
+   obs:'Se solicitó 13/01 vía mail por Sandra. Validar si información entregada está completa.'},
+  {id:2,cliente:'Talinay',empresa:'Talinay – 77.324.561-4 Parque Solar La Rosa II SpA',tarea:'Peticiones administrativas especiales',
+   desc:'Bloqueo de facturación. Sociedad fue contaminada por operaciones con proveedores riesgosos.',
+   sol:'2025-11-05',resp:'Valentín',etapa:'Revisión solicitud',obj:'2026-02-12',ubic:'Enviado a SII - Complemento información',
+   obs:'Presentación petición administrativa del 05/11/2025, asignada el 27/11/2025.'},
+  {id:3,cliente:'Talinay',empresa:'Talinay – 77.498.289-2 PMGD Holdco SpA',tarea:'Actualización de capital',
+   desc:'Presentación suscripción y pago de acciones. Documento rechazado por problemas de validación de firmas.',
+   sol:'2025-11-28',resp:'Valentín',etapa:'Presentación SII',obj:'2025-12-17',ubic:'Cliente envía antecedentes faltantes',
+   obs:'16/01 cliente envió documento de suscripción y pago firmado ante notario.'},
+  {id:4,cliente:'Talinay',empresa:'Talinay – 76.780.504-7 Tralka SpA',tarea:'Actualización de capital',
+   desc:'Aumento de capital pagado con inversiones. SII interpretó escritura de forma errónea.',
+   sol:'2025-12-19',resp:'Valentín',etapa:'Presentación SII',obj:'2026-01-08',ubic:'Observado por SII',
+   obs:'Última solicitud de corrección a SII el 09/01. SII devolvió trámite 14/01.'},
+  {id:5,cliente:'RRG',empresa:'RRG – 78.338.025-0 Andes Hazelnuts Landco SpA',tarea:'Obtención de RUT/Clave',
+   desc:'Se necesita RUT e inicio de actividades. Sistema de SII presenta errores.',
+   sol:'2026-01-02',resp:'Valentín',etapa:'Revisión solicitud',obj:'2026-01-21',ubic:'En revisión SII',
+   obs:'13/01 se presentó ticket de urgencia.'},
+  {id:6,cliente:'RRG',empresa:'RRG – 78.338.029-3 Andes Hazelnuts Opco SpA',tarea:'Obtención de RUT/Clave',
+   desc:'Se necesita RUT e inicio de actividades. Sistema de SII presenta errores.',
+   sol:'2026-01-02',resp:'Valentín',etapa:'Presentación SII',obj:'2026-01-21',ubic:'En revisión SII',
+   obs:'13/01 se presentó ticket de urgencia, se debe informar al cliente.'},
+  {id:7,cliente:'RRG',empresa:'RRG – 77.122.333-8 Persea Landco SpA',tarea:'Fusión',
+   desc:'Se presentó fusión Persea Landco y Persea Opco. Se entregaron antecedentes adicionales.',
+   sol:'2025-02-26',resp:'Valentín',etapa:'Presentación SII',obj:'2025-04-17',ubic:'Rechazado por SII',
+   obs:'08/01 se entregaron últimos antecedentes. 15/01 SII notificó rechazo.'},
+  {id:8,cliente:'RRG',empresa:'RRG – 76.618.666-1 Puntiagudo Energy SpA',tarea:'Actualización de domicilio',
+   desc:'Se debe informar sucursal donde está ubicada la planta solar.',
+   sol:'2026-01-12',resp:'Valentín',etapa:'Presentación SII',obj:'2026-01-29',ubic:'En revisión SII',obs:''},
+];
+
+const TIEMPOS = {
+  'Actualización de capital':13,'Actualización de domicilio':13,'Actualización de socios':13,
+  'Representante legal':13,'Obtención de RUT/Clave':13,'Inicio de actividades':13,
+  'Verificación de actividad':13,'Término de giro simplificado':30,'Término de giro normal':200,
+  'Fusión':36,'Peticiones administrativas comunes':40,'Peticiones administrativas especiales':70,
+};
+
+let nextId = 9;
+let editActId = null;
+let editRespIdx = null;
+let editEmpIdx = null;
+let pillActivo = 'todos';
+let impRows = [];
+
+// ======================================================
+// HELPERS
+// ======================================================
+const hoy = () => new Date().toISOString().split('T')[0];
+
+function dias(obj, etapa) {
+  if (etapa === 'Terminado') return null;
+  const n = new Date(); n.setHours(0,0,0,0);
+  return Math.round((new Date(obj) - n) / 86400000);
+}
+
+function ad() { return parseInt(document.getElementById('alert-days')?.value || 5); }
+
+function estadoBadge(d, etapa) {
+  if (etapa === 'Terminado') return `<span class="badge badge-gray">Terminado</span>`;
+  if (d === null) return '';
+  if (d < 0) return `<span class="badge badge-red">Atrasado</span>`;
+  if (d <= ad()) return `<span class="badge badge-amber">Próximo a vencer</span>`;
+  return `<span class="badge badge-green">En plazo</span>`;
+}
+
+function diasChip(d, etapa) {
+  if (etapa === 'Terminado') return `<span style="color:var(--gray-400)">—</span>`;
+  if (d === null) return '—';
+  const c = d < 0 ? 'dc-late' : d <= ad() ? 'dc-warn' : 'dc-ok';
+  return `<span class="dc ${c}">${d < 0 ? '⚠️' : d <= ad() ? '⏰' : '✓'} ${d}d</span>`;
+}
+
+function estadoKey(d, etapa) {
+  if (etapa === 'Terminado') return 'terminado';
+  if (d === null || d > ad()) return 'ok';
+  if (d < 0) return 'atrasado';
+  return 'alerta';
+}
+
+function fecha(s) {
+  if (!s) return '—';
+  const [y,m,d] = s.split('-'); return `${d}/${m}/${y}`;
+}
+
+function empHTML(e) {
+  const p = e.split(' – ');
+  if (p.length > 1) {
+    const s = p[1].split(' ');
+    return `<div style="font-weight:600">${s.slice(1).join(' ')}</div><div style="font-size:10px;color:var(--gray-400)">${p[0]} · ${s[0]}</div>`;
+  }
+  return `<div style="font-weight:600">${e}</div>`;
+}
+
+function clientes() { return [...new Set(EMPRESAS.map(e=>e[0]))].sort(); }
+
+// ======================================================
+// GOOGLE SHEETS API
+// ======================================================
+const API_URL = 'https://script.google.com/a/macros/trzl.cl/s/AKfycbxFsMmCpKfQE_fiml702nvhWVXH081I1936slOxDHIDDLMvSDyYezbX0vShRrpL-AtzAQ/exec';
+
+async function sheetRead(sheet) {
+  const r = await fetch(`${API_URL}?action=read&sheet=${sheet}`);
+  return await r.json();
+}
+
+async function sheetWrite(sheet, data) {
+  await fetch(API_URL, {
+    method:'POST',
+    body: JSON.stringify({sheet, data}),
+  });
+}
+
+// Convierte array de arrays (Sheet) → array de objetos
+function rowsToActs(rows) {
+  return rows.slice(1).filter(r=>r[0]).map(r=>({
+    id:parseInt(r[0]),cliente:r[1],empresa:r[2],tarea:r[3],desc:r[4],
+    sol:r[5],resp:r[6],etapa:r[7],obj:r[8],ubic:r[9],obs:r[10]
+  }));
+}
+function rowsToEmps(rows) {
+  return rows.slice(1).filter(r=>r[0]).map(r=>[r[0],r[1],r[2]]);
+}
+function rowsToResps(rows) {
+  return rows.slice(1).filter(r=>r[0]).map(r=>({nombre:r[0],email:r[1]}));
+}
+
+// Convierte objetos → array de arrays para guardar en Sheet
+function actsToRows(acts) {
+  return [['id','cliente','empresa','tarea','desc','sol','resp','etapa','obj','ubic','obs'],
+    ...acts.map(a=>[a.id,a.cliente,a.empresa,a.tarea,a.desc,a.sol,a.resp,a.etapa,a.obj,a.ubic,a.obs])];
+}
+function empsToRows(emps) {
+  return [['cliente','rut','nombre'],...emps];
+}
+function respsToRows(resps) {
+  return [['nombre','email'],...resps.map(r=>[r.nombre,r.email])];
+}
+
+async function guardarEnSheet() {
+  try {
+    await Promise.all([
+      sheetWrite('Actividades', actsToRows(ACTIVIDADES)),
+      sheetWrite('Empresas',    empsToRows(EMPRESAS)),
+      sheetWrite('Responsables',respsToRows(RESPONSABLES)),
+    ]);
+    document.querySelector('.sidebar-footer').innerHTML = `v2.0 · ☁️ Guardado ${new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})}`;
+  } catch(e) {
+    toast('Error al guardar en la nube','e');
+  }
+}
+
+async function cargarDesdeSheet() {
+  mostrarCargando(true);
+  try {
+    const [rA, rE, rR] = await Promise.all([
+      sheetRead('Actividades'),
+      sheetRead('Empresas'),
+      sheetRead('Responsables'),
+    ]);
+    // Si la sheet está vacía usamos datos iniciales y los subimos
+    if (rA.length <= 1 && rE.length <= 1 && rR.length <= 1) {
+      toast('Sheet vacía — cargando datos iniciales...','w');
+      await guardarEnSheet();
+    } else {
+      if (rA.length > 1) { ACTIVIDADES = rowsToActs(rA); nextId = Math.max(...ACTIVIDADES.map(a=>a.id))+1; }
+      if (rE.length > 1) EMPRESAS = rowsToEmps(rE);
+      if (rR.length > 1) RESPONSABLES = rowsToResps(rR);
+    }
+  } catch(e) {
+    toast('Sin conexión — usando datos locales','w');
+  }
+  mostrarCargando(false);
+  sincSelects();
+  document.getElementById('f-sol').value = hoy();
+  renderAll();
+}
+
+function mostrarCargando(show) {
+  document.querySelector('.sidebar-footer').innerHTML = show
+    ? `v2.0 · ⏳ Conectando con la nube...`
+    : `v2.0 · ☁️ Conectado a Google Sheets`;
+}
+
+// ======================================================
+// INIT
+// ======================================================
+document.addEventListener('DOMContentLoaded', () => {
+  cargarDesdeSheet();
+});
+
+function renderAll() {
+  renderStats(); renderAlert(); renderActs();
+  renderResps(); renderClientes();
+}
+
+// ======================================================
+// NAVEGACIÓN
+// ======================================================
+function nav(page, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  if (el) el.classList.add('active');
+  const T = {dashboard:'Panel de Control',actividades:'Actividades',responsables:'Responsables',
+    'admin-resp':'Administrar Responsables',clientes:'Clientes y Empresas',
+    'admin-emp':'Administrar Empresas',recordatorios:'Recordatorios'};
+  document.getElementById('page-title').textContent = T[page] || '';
+  if (page === 'admin-emp') initAdminEmp();
+  if (page === 'admin-resp') initAdminResp();
+  if (page === 'recordatorios') renderRemPreview();
+}
+
+// ======================================================
+// STATS
+// ======================================================
+function renderStats() {
+  const act = ACTIVIDADES.filter(a => a.etapa !== 'Terminado');
+  const atr = act.filter(a => dias(a.obj,a.etapa) < 0).length;
+  const aler = act.filter(a => { const d=dias(a.obj,a.etapa); return d!==null&&d>=0&&d<=ad(); }).length;
+  const ok = act.filter(a => { const d=dias(a.obj,a.etapa); return d!==null&&d>ad(); }).length;
+  const term = ACTIVIDADES.filter(a => a.etapa==='Terminado').length;
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card c-total"><div class="stat-label">Activas</div><div class="stat-num">${act.length}</div><div class="stat-sub">${term} terminadas</div></div>
+    <div class="stat-card c-red"><div class="stat-label">Atrasadas</div><div class="stat-num" style="color:var(--red)">${atr}</div><div class="stat-sub">Requieren atención urgente</div></div>
+    <div class="stat-card c-amber"><div class="stat-label">Próximas a vencer</div><div class="stat-num" style="color:var(--amber)">${aler}</div><div class="stat-sub">≤ ${ad()} días restantes</div></div>
+    <div class="stat-card c-green"><div class="stat-label">En plazo</div><div class="stat-num" style="color:var(--green)">${ok}</div><div class="stat-sub">Sin urgencia inmediata</div></div>`;
+}
+
+// ======================================================
+// ALERT TABLE
+// ======================================================
+function renderAlert() {
+  const list = ACTIVIDADES
+    .filter(a => { const d=dias(a.obj,a.etapa); return d!==null&&d<=ad(); })
+    .sort((a,b) => dias(a.obj,a.etapa)-dias(b.obj,b.etapa));
+  const tb = document.getElementById('alert-tbody');
+  if (!list.length) { tb.innerHTML=`<tr><td colspan="7" class="no-rows">🎉 Sin actividades atrasadas ni alertas</td></tr>`; return; }
+  tb.innerHTML = list.map(a => {
+    const d = dias(a.obj,a.etapa);
+    return `<tr><td>${empHTML(a.empresa)}</td><td style="font-weight:500">${a.tarea}</td>
+      <td><span class="badge badge-teal" style="font-size:9px">${a.etapa}</span></td>
+      <td>${a.resp}</td><td style="font-size:11px;color:var(--gray-600)">${a.ubic}</td>
+      <td>${diasChip(d,a.etapa)}</td><td>${estadoBadge(d,a.etapa)}</td></tr>`;
+  }).join('');
+}
+
+// ======================================================
+// ACTIVIDADES TABLE
+// ======================================================
+function renderActs() {
+  const buscar = document.getElementById('s-buscar').value.toLowerCase();
+  const fc = document.getElementById('s-cliente').value;
+  const fr = document.getElementById('s-resp').value;
+  let list = ACTIVIDADES.filter(a => {
+    if (fc && a.cliente!==fc) return false;
+    if (fr && a.resp!==fr) return false;
+    if (buscar && !a.empresa.toLowerCase().includes(buscar) && !a.tarea.toLowerCase().includes(buscar) && !a.desc.toLowerCase().includes(buscar)) return false;
+    if (pillActivo!=='todos' && estadoKey(dias(a.obj,a.etapa),a.etapa)!==pillActivo) return false;
+    return true;
+  }).sort((a,b) => (dias(a.obj,a.etapa)??9999)-(dias(b.obj,b.etapa)??9999));
+
+  document.getElementById('count-lbl').textContent = `${list.length} actividad${list.length!==1?'es':''}`;
+  const tb = document.getElementById('acts-tbody');
+  if (!list.length) { tb.innerHTML=`<tr><td colspan="10" class="no-rows">Sin resultados</td></tr>`; return; }
+  tb.innerHTML = list.map(a => {
+    const d = dias(a.obj,a.etapa);
+    return `<tr>
+      <td>${empHTML(a.empresa)}</td>
+      <td style="font-weight:500">${a.tarea}</td>
+      <td style="font-size:11px;color:var(--gray-600);max-width:190px">${a.desc}</td>
+      <td><span class="badge badge-teal" style="font-size:9px;white-space:normal;line-height:1.4">${a.etapa}</span></td>
+      <td style="font-weight:500">${a.resp}</td>
+      <td style="font-size:11px;color:var(--gray-400)">${fecha(a.sol)}</td>
+      <td style="font-size:11px">${fecha(a.obj)}</td>
+      <td>${diasChip(d,a.etapa)}</td>
+      <td>${estadoBadge(d,a.etapa)}</td>
+      <td><div class="td-actions">
+        <button class="ib edit" onclick="abrirModal(${a.id})" title="Editar">✏️</button>
+        <button class="ib mail" onclick="emailAct(${a.id})" title="Recordatorio">📧</button>
+        <button class="ib del" onclick="eliminarAct(${a.id})" title="Eliminar">🗑️</button>
+      </div></td></tr>`;
+  }).join('');
+}
+
+function setPill(el, val) {
+  document.querySelectorAll('#pill-estado .pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active'); pillActivo=val; renderActs();
+}
+
+function limpiarFiltros() {
+  document.getElementById('s-buscar').value='';
+  document.getElementById('s-cliente').value='';
+  document.getElementById('s-resp').value='';
+  pillActivo='todos';
+  document.querySelectorAll('#pill-estado .pill').forEach(p=>p.classList.remove('active'));
+  document.querySelector('#pill-estado .pill').classList.add('active');
+  renderActs();
+}
+
+// ======================================================
+// RESPONSABLES VIEW
+// ======================================================
+function renderResps() {
+  document.getElementById('resp-list').innerHTML = RESPONSABLES.map(r => {
+    const mine = ACTIVIDADES.filter(a=>a.resp===r.nombre&&a.etapa!=='Terminado');
+    const atr = mine.filter(a=>dias(a.obj,a.etapa)<0).length;
+    return `<div class="rc">
+      <div class="av">${r.nombre[0]}</div>
+      <div style="flex:1"><div style="font-weight:600;font-size:14px">${r.nombre}</div><div style="font-size:12px;color:var(--gray-400)">${r.email}</div></div>
+      <div style="display:flex;gap:16px;text-align:center">
+        <div><div style="font-weight:700;font-size:17px">${mine.length}</div><div style="font-size:9px;color:var(--gray-400);text-transform:uppercase;letter-spacing:1px">Activas</div></div>
+        <div><div style="font-weight:700;font-size:17px;color:var(--red)">${atr}</div><div style="font-size:9px;color:var(--gray-400);text-transform:uppercase;letter-spacing:1px">Atrasadas</div></div>
+        <div><div style="font-weight:700;font-size:17px;color:var(--green)">${mine.length-atr}</div><div style="font-size:9px;color:var(--gray-400);text-transform:uppercase;letter-spacing:1px">En plazo</div></div>
+      </div>
+      <button class="btn btn-gold btn-sm" onclick="emailResp('${r.nombre}')">📧 Recordatorio</button>
+    </div>`;
+  }).join('');
+}
+
+// ======================================================
+// ADMIN RESPONSABLES
+// ======================================================
+function initAdminResp() { renderArStats(); renderArTabla(); cancelarResp(); }
+
+function renderArStats() {
+  document.getElementById('ar-stats').innerHTML = `
+    <div class="stat-card c-total"><div class="stat-label">Responsables</div><div class="stat-num">${RESPONSABLES.length}</div></div>
+    <div class="stat-card c-amber"><div class="stat-label">Trámites activos</div><div class="stat-num">${ACTIVIDADES.filter(a=>a.etapa!=='Terminado').length}</div></div>`;
+}
+
+function renderArTabla() {
+  const tb = document.getElementById('ar-tbody');
+  if (!RESPONSABLES.length) { tb.innerHTML=`<tr><td colspan="6" class="no-rows">No hay responsables</td></tr>`; return; }
+  tb.innerHTML = RESPONSABLES.map((r,i) => {
+    const act = ACTIVIDADES.filter(a=>a.resp===r.nombre&&a.etapa!=='Terminado').length;
+    const atr = ACTIVIDADES.filter(a=>a.resp===r.nombre&&dias(a.obj,a.etapa)<0).length;
+    return `<tr>
+      <td><div class="av" style="width:32px;height:32px;font-size:13px">${r.nombre[0]}</div></td>
+      <td style="font-weight:600">${r.nombre}</td>
+      <td style="font-size:12px;color:var(--gray-400)">${r.email}</td>
+      <td>${act>0?`<span class="badge badge-teal">${act}</span>`:'<span style="color:var(--gray-400)">—</span>'}</td>
+      <td>${atr>0?`<span class="badge badge-red">${atr}</span>`:'<span style="color:var(--gray-400)">—</span>'}</td>
+      <td><div class="td-actions">
+        <button class="ib edit" onclick="editarResp(${i})">✏️</button>
+        <button class="ib del" onclick="eliminarResp(${i})">🗑️</button>
+      </div></td></tr>`;
+  }).join('');
+}
+
+function editarResp(i) {
+  editRespIdx=i; const r=RESPONSABLES[i];
+  document.getElementById('ar-title').textContent='✏️ Editar Responsable';
+  document.getElementById('ar-nombre').value=r.nombre;
+  document.getElementById('ar-email').value=r.email;
+}
+
+function cancelarResp() {
+  editRespIdx=null;
+  document.getElementById('ar-title').textContent='➕ Agregar Responsable';
+  document.getElementById('ar-nombre').value='';
+  document.getElementById('ar-email').value='';
+}
+
+function guardarResp() {
+  const nom = document.getElementById('ar-nombre').value.trim();
+  const em  = document.getElementById('ar-email').value.trim();
+  if (!nom) { toast('Ingresá el nombre','e'); return; }
+  if (!em)  { toast('Ingresá el email','e'); return; }
+  const dup = RESPONSABLES.findIndex(r=>r.nombre.toLowerCase()===nom.toLowerCase());
+  if (dup!==-1&&dup!==editRespIdx) { toast('Ya existe un responsable con ese nombre','e'); return; }
+  if (editRespIdx!==null) {
+    const nomAnt = RESPONSABLES[editRespIdx].nombre;
+    RESPONSABLES[editRespIdx]={nombre:nom,email:em};
+    if (nomAnt!==nom) ACTIVIDADES.forEach(a=>{if(a.resp===nomAnt)a.resp=nom;});
+    toast('Responsable actualizado','s');
+  } else {
+    RESPONSABLES.push({nombre:nom,email:em});
+    toast('Responsable agregado','s');
+  }
+  cancelarResp(); sincSelects(); renderArStats(); renderArTabla(); renderResps(); guardarEnSheet();
+}
+
+function eliminarResp(i) {
+  const r=RESPONSABLES[i];
+  const act=ACTIVIDADES.filter(a=>a.resp===r.nombre&&a.etapa!=='Terminado').length;
+  const msg = act>0 ? `"${r.nombre}" tiene ${act} trámite(s) activo(s). ¿Eliminar igual?` : `¿Eliminar a "${r.nombre}"?`;
+  if (!confirm(msg)) return;
+  RESPONSABLES.splice(i,1);
+  toast('Responsable eliminado','w');
+  sincSelects(); renderArStats(); renderArTabla(); renderResps(); guardarEnSheet();
+}
+
+// ======================================================
+// CLIENTES VIEW
+// ======================================================
+function renderClientes() {
+  const byC = {};
+  EMPRESAS.forEach(([c,rut,nom])=>{ if(!byC[c])byC[c]=[]; byC[c].push({rut,nom}); });
+  document.getElementById('clientes-content').innerHTML = Object.entries(byC).map(([c,list])=>`
+    <div style="margin-bottom:22px">
+      <div class="cgh"><span>${c}</span><span style="font-size:12px;opacity:.7">${list.length} empresas</span></div>
+      <div class="table-wrap" style="border-radius:0 0 var(--r) var(--r)">
+        <table><thead><tr><th>RUT</th><th>Empresa</th><th>Trámites activos</th></tr></thead>
+        <tbody>${list.map(e=>{
+          const nv=`${c} – ${e.rut} ${e.nom}`;
+          const ct=ACTIVIDADES.filter(a=>a.empresa===nv&&a.etapa!=='Terminado').length;
+          return `<tr><td style="font-size:11px;font-family:monospace;color:var(--gray-400)">${e.rut}</td>
+            <td style="font-weight:500">${e.nom}</td>
+            <td>${ct>0?`<span class="badge badge-teal">${ct}</span>`:'<span style="color:var(--gray-400);font-size:11px">—</span>'}</td></tr>`;
+        }).join('')}</tbody></table>
+      </div>
+    </div>`).join('');
+}
+
+// ======================================================
+// ADMIN EMPRESAS
+// ======================================================
+function initAdminEmp() { sincAeSelects(); renderAeStats(); renderEmpAdmin(); cancelarEmp(); }
+
+function sincAeSelects() {
+  const cl = clientes();
+  const opts = cl.map(c=>`<option value="${c}">${c}</option>`).join('');
+  document.getElementById('ae-cliente').innerHTML='<option value="">— Seleccionar —</option>'+opts;
+  document.getElementById('ae-filter').innerHTML='<option value="">Todos</option>'+opts;
+}
+
+function renderAeStats() {
+  document.getElementById('ae-stats').innerHTML=`
+    <div class="stat-card c-total"><div class="stat-label">Clientes</div><div class="stat-num">${clientes().length}</div></div>
+    <div class="stat-card c-green"><div class="stat-label">Empresas</div><div class="stat-num">${EMPRESAS.length}</div></div>`;
+}
+
+function renderEmpAdmin() {
+  const buscar=(document.getElementById('ae-buscar')?.value||'').toLowerCase();
+  const fc=document.getElementById('ae-filter')?.value||'';
+  const list=EMPRESAS.map((e,i)=>({c:e[0],rut:e[1],nom:e[2],i})).filter(e=>{
+    if(fc&&e.c!==fc)return false;
+    if(buscar&&!e.rut.toLowerCase().includes(buscar)&&!e.nom.toLowerCase().includes(buscar)&&!e.c.toLowerCase().includes(buscar))return false;
+    return true;
+  });
+  const tb=document.getElementById('ae-tbody');
+  if(!list.length){tb.innerHTML=`<tr><td colspan="5" class="no-rows">Sin resultados</td></tr>`;return;}
+  tb.innerHTML=list.map(e=>{
+    const nv=`${e.c} – ${e.rut} ${e.nom}`;
+    const ct=ACTIVIDADES.filter(a=>a.empresa===nv&&a.etapa!=='Terminado').length;
+    return `<tr>
+      <td><span class="badge badge-teal">${e.c}</span></td>
+      <td style="font-size:11px;font-family:monospace;color:var(--gray-400)">${e.rut}</td>
+      <td style="font-weight:500">${e.nom}</td>
+      <td>${ct>0?`<span class="badge badge-amber">${ct}</span>`:'<span style="color:var(--gray-400);font-size:11px">—</span>'}</td>
+      <td><div class="td-actions">
+        <button class="ib edit" onclick="editarEmp(${e.i})">✏️</button>
+        <button class="ib del" onclick="eliminarEmp(${e.i})">🗑️</button>
+      </div></td></tr>`;
+  }).join('');
+}
+
+function editarEmp(i) {
+  editEmpIdx=i; const e=EMPRESAS[i];
+  document.getElementById('ae-title').textContent='✏️ Editar Empresa';
+  document.getElementById('ae-cliente').value=e[0];
+  document.getElementById('ae-cliente-nuevo').value='';
+  document.getElementById('ae-rut').value=e[1];
+  document.getElementById('ae-nombre').value=e[2];
+}
+
+function cancelarEmp() {
+  editEmpIdx=null;
+  document.getElementById('ae-title').textContent='➕ Agregar Empresa';
+  document.getElementById('ae-cliente').value='';
+  document.getElementById('ae-cliente-nuevo').value='';
+  document.getElementById('ae-rut').value='';
+  document.getElementById('ae-nombre').value='';
+}
+
+function guardarEmp() {
+  const clEx=document.getElementById('ae-cliente').value.trim();
+  const clNv=document.getElementById('ae-cliente-nuevo').value.trim();
+  const cl=clNv||clEx;
+  const rut=document.getElementById('ae-rut').value.trim();
+  const nom=document.getElementById('ae-nombre').value.trim();
+  if(!cl){toast('Seleccioná o ingresá un cliente','e');return;}
+  if(!rut){toast('Ingresá el RUT','e');return;}
+  if(!nom){toast('Ingresá el nombre','e');return;}
+  const dup=EMPRESAS.findIndex(e=>e[1]===rut);
+  if(dup!==-1&&dup!==editEmpIdx){toast(`RUT ${rut} ya existe (${EMPRESAS[dup][2]})`,'e');return;}
+  if(editEmpIdx!==null){
+    EMPRESAS[editEmpIdx]=[cl,rut,nom];
+    toast('Empresa actualizada','s');
+  } else {
+    EMPRESAS.push([cl,rut,nom]);
+    toast(`Empresa "${nom}" agregada`,'s');
+  }
+  cancelarEmp(); sincAeSelects(); sincSelects(); renderAeStats(); renderEmpAdmin(); renderClientes(); guardarEnSheet();
+}
+
+function eliminarEmp(i) {
+  const e=EMPRESAS[i];
+  const nv=`${e[0]} – ${e[1]} ${e[2]}`;
+  const ct=ACTIVIDADES.filter(a=>a.empresa===nv).length;
+  const msg=ct>0?`Esta empresa tiene ${ct} actividad(es) asociada(s). ¿Eliminar igual?`:`¿Eliminar "${e[2]}"?`;
+  if(!confirm(msg))return;
+  EMPRESAS.splice(i,1);
+  toast('Empresa eliminada','w');
+  sincAeSelects(); sincSelects(); renderAeStats(); renderEmpAdmin(); renderClientes(); guardarEnSheet();
+}
+
+// ======================================================
+// IMPORT EXCEL
+// ======================================================
+function dzOver(e){e.preventDefault();document.getElementById('dz').classList.add('over');}
+function dzLeave(){document.getElementById('dz').classList.remove('over');}
+function dzDrop(e){e.preventDefault();dzLeave();const f=e.dataTransfer.files[0];if(f)procImp(f);}
+function impFile(e){const f=e.target.files[0];if(f)procImp(f);e.target.value='';}
+
+function procImp(file) {
+  if(!file.name.match(/\.xlsx?$/i)){toast('Solo .xlsx o .xls','e');return;}
+  const r=new FileReader();
+  r.onload=function(e){
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      let hi=0;
+      for(let i=0;i<Math.min(rows.length,5);i++){if(rows[i].some(c=>String(c).trim())){hi=i;break;}}
+      const hdrs=rows[hi].map(h=>String(h).trim().toLowerCase());
+      const cc=hdrs.findIndex(h=>h.includes('cliente')||h.includes('grupo'));
+      const cr=hdrs.findIndex(h=>h.includes('rut'));
+      const ce=hdrs.findIndex(h=>h.includes('empresa')||h.includes('nombre')||h.includes('sociedad'));
+      if(cc===-1||cr===-1||ce===-1){toast('No encontré columnas Cliente, RUT, Empresa','e');return;}
+      impRows=rows.slice(hi+1).filter(r=>r.some(c=>String(c).trim())).map(r=>({
+        c:String(r[cc]||'').trim(),rut:String(r[cr]||'').trim(),nom:String(r[ce]||'').trim()
+      }));
+      if(!impRows.length){toast('El archivo no tiene filas de datos','e');return;}
+      mostrarPrevImp();
+    }catch{toast('Error al leer el archivo','e');}
+  };
+  r.readAsArrayBuffer(file);
+}
+
+function mostrarPrevImp() {
+  let nv=0,dup=0,err=0;
+  const tb=document.getElementById('imp-tbody');
+  tb.innerHTML=impRows.map((r,i)=>{
+    let st,msg,badge;
+    if(!r.c||!r.rut||!r.nom){st='err';msg='Faltan datos';err++;badge=`<span class="badge badge-red">Error</span>`;}
+    else{
+      const d=EMPRESAS.findIndex(e=>e[1]===r.rut);
+      if(d!==-1){st='dup';msg=`Ya existe (${EMPRESAS[d][2]})`;dup++;badge=`<span class="badge badge-amber">Duplicado</span>`;}
+      else{st='ok';msg='';nv++;badge=`<span class="badge badge-green">Nueva</span>`;}
+    }
+    impRows[i]._st=st;
+    return `<tr style="${st!=='ok'?'opacity:.55':''}"><td>${badge}</td><td>${r.c||'—'}</td><td style="font-family:monospace;font-size:11px">${r.rut||'—'}</td><td>${r.nom||'—'}</td><td style="font-size:11px;color:var(--gray-400)">${msg}</td></tr>`;
+  }).join('');
+  document.getElementById('imp-summary').innerHTML=`
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <span class="badge badge-green" style="font-size:12px;padding:4px 12px">✓ ${nv} nuevas</span>
+      <span class="badge badge-amber" style="font-size:12px;padding:4px 12px">⚠️ ${dup} duplicadas</span>
+      ${err?`<span class="badge badge-red" style="font-size:12px;padding:4px 12px">✕ ${err} con error</span>`:''}
+    </div>
+    <p style="margin-top:8px;font-size:12px;color:var(--gray-600)">Solo se importarán las filas marcadas como <strong>Nueva</strong>.</p>`;
+  document.getElementById('imp-btn').textContent=`✅ Importar ${nv} empresa${nv!==1?'s':''}`;
+  document.getElementById('imp-btn').disabled=nv===0;
+  document.getElementById('imp-overlay').classList.add('open');
+}
+
+function cerrarImpModal(){document.getElementById('imp-overlay').classList.remove('open');impRows=[];}
+
+function confirmarImp() {
+  const val=impRows.filter(r=>r._st==='ok');
+  val.forEach(r=>EMPRESAS.push([r.c,r.rut,r.nom]));
+  cerrarImpModal(); sincAeSelects(); sincSelects(); renderAeStats(); renderEmpAdmin(); renderClientes();
+  toast(`${val.length} empresa${val.length!==1?'s':''} importada${val.length!==1?'s':''}`,'s');
+  guardarEnSheet();
+}
+
+function descargarPlantilla() {
+  const ws=XLSX.utils.aoa_to_sheet([['Cliente','RUT','Empresa'],['Talinay','77.123.456-7','Ejemplo Solar SpA'],['RRG','76.987.654-3','Ejemplo Agrícola SpA']]);
+  ws['!cols']=[{wch:18},{wch:18},{wch:35}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Empresas');
+  XLSX.writeFile(wb,'Plantilla_Importacion_Empresas.xlsx');
+  toast('Plantilla descargada','s');
+}
+
+// ======================================================
+// MODAL ACTIVIDAD
+// ======================================================
+function sincSelects() {
+  const cl=clientes();
+  const opCl=cl.map(c=>`<option value="${c}">${c}</option>`).join('');
+  document.getElementById('s-cliente').innerHTML='<option value="">Todos</option>'+opCl;
+  document.getElementById('f-cliente').innerHTML='<option value="">— Seleccionar —</option>'+opCl;
+  const opRe=RESPONSABLES.map(r=>`<option value="${r.nombre}">${r.nombre}</option>`).join('');
+  document.getElementById('s-resp').innerHTML='<option value="">Todos</option>'+opRe;
+  document.getElementById('f-resp').innerHTML=opRe;
+  poblarEmpresas();
+}
+
+function poblarEmpresas() {
+  const c=document.getElementById('f-cliente').value;
+  document.getElementById('f-empresa').innerHTML=EMPRESAS
+    .filter(e=>e[0]===c)
+    .map(e=>`<option value="${e[0]} – ${e[1]} ${e[2]}">${e[1]} ${e[2]}</option>`)
+    .join('');
+}
+
+function autoFecha() {
+  const t=document.getElementById('f-tarea').value;
+  const d=TIEMPOS[t]; if(!d)return;
+  const s=document.getElementById('f-sol').value||hoy();
+  const o=new Date(s); o.setDate(o.getDate()+d);
+  document.getElementById('f-obj').value=o.toISOString().split('T')[0];
+}
+
+function abrirModal(id=null) {
+  editActId=id;
+  document.getElementById('act-modal-title').textContent=id?'Editar Actividad':'Nueva Actividad';
+  poblarEmpresas();
+  if(id){
+    const a=ACTIVIDADES.find(x=>x.id===id);
+    document.getElementById('f-cliente').value=a.cliente; poblarEmpresas();
+    document.getElementById('f-empresa').value=a.empresa;
+    document.getElementById('f-tarea').value=a.tarea;
+    document.getElementById('f-resp').value=a.resp;
+    document.getElementById('f-sol').value=a.sol;
+    document.getElementById('f-obj').value=a.obj;
+    document.getElementById('f-etapa').value=a.etapa;
+    document.getElementById('f-ubic').value=a.ubic;
+    document.getElementById('f-desc').value=a.desc;
+    document.getElementById('f-obs').value=a.obs;
+  } else {
+    document.getElementById('f-cliente').value=''; poblarEmpresas();
+    document.getElementById('f-tarea').value='';
+    document.getElementById('f-resp').value=RESPONSABLES[0]?.nombre||'';
+    document.getElementById('f-sol').value=hoy();
+    document.getElementById('f-obj').value='';
+    document.getElementById('f-etapa').value='Recepción solicitud';
+    document.getElementById('f-ubic').value='En revisión interna (Valentín)';
+    document.getElementById('f-desc').value='';
+    document.getElementById('f-obs').value='';
+  }
+  document.getElementById('act-overlay').classList.add('open');
+}
+
+function cerrarModal(){document.getElementById('act-overlay').classList.remove('open');editActId=null;}
+
+function guardarAct() {
+  const a={
+    cliente:document.getElementById('f-cliente').value,
+    empresa:document.getElementById('f-empresa').value,
+    tarea:document.getElementById('f-tarea').value,
+    desc:document.getElementById('f-desc').value,
+    sol:document.getElementById('f-sol').value,
+    resp:document.getElementById('f-resp').value,
+    etapa:document.getElementById('f-etapa').value,
+    obj:document.getElementById('f-obj').value,
+    ubic:document.getElementById('f-ubic').value,
+    obs:document.getElementById('f-obs').value,
+  };
+  if(!a.tarea||!a.empresa||!a.obj){toast('Completá tarea, empresa y fecha objetivo','e');return;}
+  if(editActId){
+    const i=ACTIVIDADES.findIndex(x=>x.id===editActId);
+    ACTIVIDADES[i]={...ACTIVIDADES[i],...a};
+    toast('Actividad actualizada','s');
+  } else {
+    ACTIVIDADES.push({id:nextId++,...a});
+    toast('Actividad creada','s');
+  }
+  cerrarModal(); renderAll(); guardarEnSheet();
+}
+
+function eliminarAct(id) {
+  if(!confirm('¿Eliminar esta actividad?'))return;
+  ACTIVIDADES=ACTIVIDADES.filter(a=>a.id!==id);
+  toast('Actividad eliminada','w'); renderAll(); guardarEnSheet();
+}
+
+// ======================================================
+// EMAIL
+// ======================================================
+function buildBody(resp, acts) {
+  return ['Estimado/a '+resp,'',
+    'Te informamos que tenés las siguientes actividades pendientes:','',
+    ...acts.map(a=>{const d=dias(a.obj,a.etapa);const est=d<0?`⚠️ ATRASADO ${Math.abs(d)} días`:`⏰ ${d} días restantes`;
+      return `• ${a.empresa}\n  Trámite: ${a.tarea}\n  Etapa: ${a.etapa} | ${a.ubic}\n  Fecha objetivo: ${fecha(a.obj)} | ${est}`;}),
+    '','Por favor tomar las acciones necesarias a la brevedad.','','Saludos,','Terrazul – Control de Actividades'
+  ].join('\n');
+}
+
+function emailAct(id) {
+  const a=ACTIVIDADES.find(x=>x.id===id);
+  const ri=RESPONSABLES.find(r=>r.nombre===a.resp);
+  const d=dias(a.obj,a.etapa);
+  document.getElementById('em-to').value=ri?.email||'';
+  document.getElementById('em-subj').value=`[Terrazul] Recordatorio: ${a.tarea} – ${a.empresa.split(' – ')[1]||a.empresa}`;
+  document.getElementById('em-body').textContent=buildBody(a.resp,[a]);
+  document.getElementById('email-overlay').classList.add('open');
+}
+
+function emailResp(nom) {
+  const ri=RESPONSABLES.find(r=>r.nombre===nom);
+  const acts=ACTIVIDADES.filter(a=>{const d=dias(a.obj,a.etapa);return a.resp===nom&&d!==null&&d<=ad();});
+  if(!acts.length){toast(`${nom} no tiene actividades próximas a vencer`,'w');return;}
+  document.getElementById('em-to').value=ri?.email||'';
+  document.getElementById('em-subj').value=`[Terrazul] Recordatorio de actividades – ${nom}`;
+  document.getElementById('em-body').textContent=buildBody(nom,acts);
+  document.getElementById('email-overlay').classList.add('open');
+}
+
+function cerrarEmail(){document.getElementById('email-overlay').classList.remove('open');}
+
+function enviarEmail() {
+  const to=document.getElementById('em-to').value;
+  const subj=document.getElementById('em-subj').value;
+  const body=document.getElementById('em-body').textContent;
+  window.open(`mailto:${to}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`);
+  cerrarEmail(); toast('Abriendo cliente de correo...','s');
+}
+
+function enviarRecordatorios() {
+  const byR={};
+  ACTIVIDADES.forEach(a=>{const d=dias(a.obj,a.etapa);if(d!==null&&d<=ad()){if(!byR[a.resp])byR[a.resp]=[];byR[a.resp].push(a);}});
+  const keys=Object.keys(byR);
+  if(!keys.length){toast('No hay actividades que requieran recordatorio','w');return;}
+  emailResp(keys[0]);
+}
+
+// ======================================================
+// RECORDATORIOS PREVIEW
+// ======================================================
+function renderRemPreview() {
+  const byR={};
+  ACTIVIDADES.forEach(a=>{const d=dias(a.obj,a.etapa);if(d!==null&&d<=ad()){if(!byR[a.resp])byR[a.resp]=[];byR[a.resp].push(a);}});
+  const ct=document.getElementById('rem-preview');
+  if(!Object.keys(byR).length){ct.innerHTML=`<div style="text-align:center;padding:36px;color:var(--gray-400)">📭 No hay actividades que requieran recordatorio</div>`;return;}
+  ct.innerHTML=Object.entries(byR).map(([resp,acts])=>{
+    const ri=RESPONSABLES.find(r=>r.nombre===resp);
+    return `<div class="rmc">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div><span style="font-weight:600">${resp}</span><span style="color:var(--gray-400);font-size:12px;margin-left:8px">${ri?.email||''}</span>
+        <div style="font-size:11px;color:var(--gray-400);margin-top:2px">${acts.length} actividad${acts.length!==1?'es':''} pendiente${acts.length!==1?'s':''}</div></div>
+        <button class="btn btn-gold btn-sm" onclick="emailResp('${resp}')">📧 Enviar</button>
+      </div>
+      <div class="eprev" style="font-size:11px;max-height:160px;overflow-y:auto">${buildBody(resp,acts)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ======================================================
+// BACKUP EXPORT / IMPORT
+// ======================================================
+function exportarBackup() {
+  const data={version:2,fecha:new Date().toISOString(),actividades:ACTIVIDADES,empresas:EMPRESAS,responsables:RESPONSABLES,nextId};
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+  a.download=`Terrazul_backup_${hoy()}.json`; a.click();
+  toast('Backup exportado','s');
+}
+
+function importarBackup(e) {
+  const file=e.target.files[0]; e.target.value=''; if(!file)return;
+  const r=new FileReader();
+  r.onload=function(ev){
+    try{
+      const d=JSON.parse(ev.target.result);
+      if(!d.version||!Array.isArray(d.actividades)||!Array.isArray(d.empresas)||!Array.isArray(d.responsables)){
+        toast('Archivo inválido: no es un backup de Terrazul','e');return;
+      }
+      const f=d.fecha?new Date(d.fecha).toLocaleString('es-CL'):'desconocida';
+      if(!confirm(`Backup del ${f}\n• ${d.actividades.length} actividades\n• ${d.empresas.length} empresas\n• ${d.responsables.length} responsables\n\n¿Restaurar? Los datos actuales serán reemplazados.`))return;
+      ACTIVIDADES=d.actividades; EMPRESAS=d.empresas; RESPONSABLES=d.responsables;
+      nextId=d.nextId||(Math.max(0,...d.actividades.map(a=>a.id))+1);
+      sincSelects(); renderAll(); guardarEnSheet(); toast('Backup restaurado','s');
+    }catch{toast('Error al leer el backup','e');}
+  };
+  r.readAsText(file);
+}
+
+// ======================================================
+// TOAST
+// ======================================================
+function toast(msg,type='s') {
+  const ic={s:'✓',w:'⚠️',e:'✕'};
+  const t=document.createElement('div');
+  t.className=`toast ${type}`;
+  t.innerHTML=`<span>${ic[type]}</span><span>${msg}</span>`;
+  document.getElementById('toast-ct').appendChild(t);
+  setTimeout(()=>t.remove(),3200);
+}
+</script>
+</body>
+</html>
