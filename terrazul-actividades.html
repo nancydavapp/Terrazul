@@ -1206,7 +1206,7 @@ function poblarSelectsCategorias() {
   if (fUbic) fUbic.innerHTML = CAT_UBICACIONES.map(u=>`<option>${u}</option>`).join('');
 }
 
-
+function poblarEmpresas() {
   const c=document.getElementById('f-cliente').value;
   document.getElementById('f-empresa').innerHTML=EMPRESAS
     .filter(e=>e[0]===c)
