@@ -457,7 +457,17 @@ td{padding:9px 12px;color:var(--navy);vertical-align:middle}
           </select>
         </div>
         <div class="fg-full"><label class="fl">Descripción</label><textarea id="f-desc" placeholder="Descripción del trámite..."></textarea></div>
-        <div class="fg-full"><label class="fl">📎 Link a documentos <span style="color:var(--gray-400);font-size:10px">(Google Drive, Dropbox, etc.)</span></label><input type="text" id="f-link" placeholder="https://drive.google.com/..."></div>
+        <div class="fg-full">
+          <label class="fl">📎 Documento adjunto</label>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="text" id="f-link" placeholder="Link aparecerá aquí al subir..." style="flex:1;min-width:200px">
+            <label class="btn btn-secondary btn-sm" style="cursor:pointer;white-space:nowrap">
+              📂 Subir archivo
+              <input type="file" id="f-archivo" style="display:none" onchange="subirArchivo(event)">
+            </label>
+          </div>
+          <div id="upload-status" style="font-size:11px;color:var(--gray-400);margin-top:4px"></div>
+        </div>
         <div class="fg-full"><label class="fl">Comentarios u Observaciones</label><textarea id="f-obs" placeholder="Historial de gestiones, notas..."></textarea></div>
       </div>
     </div>
@@ -1308,8 +1318,7 @@ function abrirModal(id=null) {
     document.getElementById('f-desc').value=a.desc;
     document.getElementById('f-link').value=a.link||'';
     document.getElementById('f-obs').value=a.obs;
-  } else {
-    document.getElementById('f-cliente').value=''; poblarEmpresas();
+  } else {    document.getElementById('f-cliente').value=''; poblarEmpresas();
     document.getElementById('f-tarea').value='';
     document.getElementById('f-resp').value=RESPONSABLES[0]?.nombre||'';
     document.getElementById('f-sol').value=hoy();
@@ -1320,6 +1329,8 @@ function abrirModal(id=null) {
     document.getElementById('f-link').value='';
     document.getElementById('f-obs').value='';
   }
+  const st = document.getElementById('upload-status');
+  if (st) st.textContent = '';
   document.getElementById('act-overlay').classList.add('open');
 }
 
@@ -1459,8 +1470,51 @@ function importarBackup(e) {
 }
 
 // ======================================================
-// EXPORTAR ACTIVIDADES A EXCEL (con logo via ExcelJS)
+// SUBIR ARCHIVO A GOOGLE DRIVE
 // ======================================================
+async function subirArchivo(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+
+  const status = document.getElementById('upload-status');
+  status.textContent = '⏳ Subiendo archivo...';
+  status.style.color = 'var(--amber)';
+
+  try {
+    const reader = new FileReader();
+    reader.onload = async function(ev) {
+      const b64 = ev.target.result.split(',')[1];
+      const payload = {
+        action: 'upload',
+        filename: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        data: b64,
+      };
+
+      const resp = await fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      const result = await resp.json();
+
+      if (result.ok && result.url) {
+        document.getElementById('f-link').value = result.url;
+        status.textContent = `✅ "${file.name}" subido correctamente`;
+        status.style.color = 'var(--green)';
+      } else {
+        status.textContent = '❌ Error al subir el archivo';
+        status.style.color = 'var(--red)';
+      }
+    };
+    reader.readAsDataURL(file);
+  } catch(err) {
+    status.textContent = '❌ Error de conexión';
+    status.style.color = 'var(--red)';
+  }
+}
+
+
 async function svgToPngBase64(svgB64, w, h) {
   return new Promise(resolve => {
     const img = new Image();
