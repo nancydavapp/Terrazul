@@ -243,7 +243,7 @@ td{padding:9px 12px;color:var(--navy);vertical-align:middle}
     <div class="stitle">⚠️ Actividades Atrasadas o con Alerta</div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Empresa</th><th>Trámite</th><th>Etapa</th><th>Responsable</th><th>Ubicación</th><th>Días</th><th>Estado</th></tr></thead>
+        <thead><tr><th>Empresa</th><th>Trámite</th><th>Etapa</th><th>Responsable</th><th>Ubicación</th><th>Prioridad</th><th>Días</th><th>Estado</th></tr></thead>
         <tbody id="alert-tbody"></tbody>
       </table>
     </div>
@@ -284,7 +284,7 @@ td{padding:9px 12px;color:var(--navy);vertical-align:middle}
     <div style="font-size:12px;color:var(--gray-400);margin-bottom:8px"><span id="count-lbl"></span></div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th style="width:180px">Empresa</th><th style="width:140px">Trámite</th><th>Descripción</th><th>Etapa</th><th>Responsable</th><th style="width:82px">Solicitud</th><th style="width:82px">Objetivo</th><th>Días</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <thead><tr><th style="width:180px">Empresa</th><th style="width:140px">Trámite</th><th>Descripción</th><th>Etapa</th><th>Responsable</th><th style="width:82px">Solicitud</th><th style="width:82px">Objetivo</th><th>Prioridad</th><th>Días</th><th>Estado</th><th>Acciones</th></tr></thead>
         <tbody id="acts-tbody"></tbody>
       </table>
     </div>
@@ -492,6 +492,15 @@ td{padding:9px 12px;color:var(--navy);vertical-align:middle}
           </select>
         </div>
         <div><label class="fl">Responsable</label><select id="f-resp"></select></div>
+        <div><label class="fl">Prioridad</label>
+          <select id="f-prior">
+            <option value="auto">🤖 Automática</option>
+            <option value="1">🔴 1 — Crítica</option>
+            <option value="2">🟠 2 — Alta</option>
+            <option value="3">🟡 3 — Media</option>
+            <option value="4">🟢 4 — Normal</option>
+          </select>
+        </div>
         <div><label class="fl">Fecha Solicitud</label><input type="date" id="f-sol"></div>
         <div><label class="fl">Fecha Objetivo <span style="color:var(--teal);font-size:10px">(auto)</span></label><input type="date" id="f-obj"></div>
         <div><label class="fl">Etapa</label>
@@ -722,6 +731,74 @@ let CAT_UBICACIONES = [
 // HELPERS
 // ======================================================
 const hoy = () => new Date().toISOString().split('T')[0];
+
+function prioridadAuto(d) {
+  if (d === null) return '4';
+  if (d < 0)  return '1';
+  if (d <= 3) return '1';
+  if (d <= 7) return '2';
+  if (d <= 15) return '3';
+  return '4';
+}
+
+function prioridadBadge(prior, d, id) {
+  const p = prior === 'auto' ? prioridadAuto(d) : prior;
+  const map = {
+    '1': {bg:'#f9d6d3',color:'#c0392b',label:'🔴 1 Crítica'},
+    '2': {bg:'#ffe4cc',color:'#c07a00',label:'🟠 2 Alta'},
+    '3': {bg:'#fff0cc',color:'#c07a00',label:'🟡 3 Media'},
+    '4': {bg:'#d4f0e0',color:'#1e7e47',label:'🟢 4 Normal'},
+  };
+  const c = map[p] || map['4'];
+  if (id === undefined) return `<span class="badge" style="background:${c.bg};color:${c.color}">${c.label}</span>`;
+  return `<div style="position:relative;display:inline-block">
+    <span class="badge" style="background:${c.bg};color:${c.color};cursor:pointer" onclick="togglePriorMenu(${id},this)">${c.label} ▾</span>
+    <div id="pmenu-${id}" style="display:none;position:absolute;top:100%;left:0;z-index:200;background:#fff;border:1px solid var(--gray-200);border-radius:var(--rs);box-shadow:var(--shm);min-width:130px;overflow:hidden">
+      <div onclick="setPrior(${id},'auto')" style="padding:6px 10px;font-size:12px;cursor:pointer;hover:background:#f4f6f9">🤖 Automática</div>
+      <div onclick="setPrior(${id},'1')" style="padding:6px 10px;font-size:12px;cursor:pointer;color:#c0392b">🔴 1 Crítica</div>
+      <div onclick="setPrior(${id},'2')" style="padding:6px 10px;font-size:12px;cursor:pointer;color:#c07a00">🟠 2 Alta</div>
+      <div onclick="setPrior(${id},'3')" style="padding:6px 10px;font-size:12px;cursor:pointer;color:#c07a00">🟡 3 Media</div>
+      <div onclick="setPrior(${id},'4')" style="padding:6px 10px;font-size:12px;cursor:pointer;color:#1e7e47">🟢 4 Normal</div>
+    </div>
+  </div>`;
+}
+
+function togglePriorMenu(id, el) {
+  // Cerrar todos los menus abiertos
+  document.querySelectorAll('[id^="pmenu-"]').forEach(m => {
+    if (m.id !== `pmenu-${id}`) m.style.display = 'none';
+  });
+  const menu = document.getElementById(`pmenu-${id}`);
+  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+  // Cerrar al hacer clic fuera
+  setTimeout(() => {
+    document.addEventListener('click', function handler(e) {
+      if (!e.target.closest(`#pmenu-${id}`) && !e.target.closest(`[onclick*="togglePriorMenu(${id}"]`)) {
+        menu.style.display = 'none';
+        document.removeEventListener('click', handler);
+      }
+    });
+  }, 10);
+}
+
+function setPrior(id, valor) {
+  const a = ACTIVIDADES.find(x => x.id === id);
+  if (!a) return;
+  a.prior = valor;
+  document.querySelectorAll('[id^="pmenu-"]').forEach(m => m.style.display = 'none');
+  renderAll();
+  guardarEnSheet('Actividades');
+  toast('Prioridad actualizada','s');
+}
+
+
+function prioridadSort(a, b) {
+  const da = dias(a.obj, a.etapa);
+  const db = dias(b.obj, b.etapa);
+  const pa = parseInt(a.prior === 'auto' ? prioridadAuto(da) : a.prior);
+  const pb = parseInt(b.prior === 'auto' ? prioridadAuto(db) : b.prior);
+  return pa - pb;
+}
 
 function dias(obj, etapa) {
   if (etapa === 'Terminado') return null;
@@ -978,6 +1055,7 @@ function renderAlert() {
     return `<tr><td>${empHTML(a.empresa)}</td><td style="font-weight:500">${a.tarea}</td>
       <td><span class="badge badge-teal" style="font-size:9px">${a.etapa}</span></td>
       <td>${a.resp}</td><td style="font-size:11px;color:var(--gray-600)">${a.ubic}</td>
+      <td>${prioridadBadge(a.prior||'auto',d)}</td>
       <td>${diasChip(d,a.etapa)}</td><td>${estadoBadge(d,a.etapa)}</td></tr>`;
   }).join('');
 }
@@ -995,11 +1073,11 @@ function renderActs() {
     if (buscar && !a.empresa.toLowerCase().includes(buscar) && !a.tarea.toLowerCase().includes(buscar) && !a.desc.toLowerCase().includes(buscar)) return false;
     if (pillActivo!=='todos' && estadoKey(dias(a.obj,a.etapa),a.etapa)!==pillActivo) return false;
     return true;
-  }).sort((a,b) => (dias(a.obj,a.etapa)??9999)-(dias(b.obj,b.etapa)??9999));
+  }).sort(prioridadSort);
 
   document.getElementById('count-lbl').textContent = `${list.length} actividad${list.length!==1?'es':''}`;
   const tb = document.getElementById('acts-tbody');
-  if (!list.length) { tb.innerHTML=`<tr><td colspan="10" class="no-rows">Sin resultados</td></tr>`; return; }
+  if (!list.length) { tb.innerHTML=`<tr><td colspan="11" class="no-rows">Sin resultados</td></tr>`; return; }
   tb.innerHTML = list.map(a => {
     const d = dias(a.obj,a.etapa);
     return `<tr>
@@ -1010,6 +1088,7 @@ function renderActs() {
       <td style="font-weight:500">${a.resp}</td>
       <td style="font-size:11px;color:var(--gray-400)">${fecha(a.sol)}</td>
       <td style="font-size:11px">${fecha(a.obj)}</td>
+      <td>${prioridadBadge(a.prior||'auto',d,a.id)}</td>
       <td>${diasChip(d,a.etapa)}</td>
       <td>${estadoBadge(d,a.etapa)}</td>
       <td><div class="td-actions">
@@ -1403,6 +1482,7 @@ function abrirModal(id=null) {
     document.getElementById('f-ubic').value=a.ubic;
     document.getElementById('f-desc').value=a.desc;
     document.getElementById('f-link').value=a.link||'';
+    document.getElementById('f-prior').value=a.prior||'auto';
     // Historial comentarios
     renderHistorial(a.obs||'');
     sincAutorSelect();
@@ -1438,6 +1518,7 @@ function guardarAct() {
     ubic:document.getElementById('f-ubic').value,
     obs:document.getElementById('f-obs-historial').dataset.raw||'',
     link:document.getElementById('f-link').value,
+    prior:document.getElementById('f-prior').value,
   };
   if(!a.tarea||!a.empresa||!a.obj){toast('Completá tarea, empresa y fecha objetivo','e');return;}
   if(editActId){
