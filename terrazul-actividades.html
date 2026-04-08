@@ -795,9 +795,25 @@ function setPrior(id, valor) {
 function prioridadSort(a, b) {
   const da = dias(a.obj, a.etapa);
   const db = dias(b.obj, b.etapa);
-  const pa = parseInt(a.prior === 'auto' ? prioridadAuto(da) : a.prior);
-  const pb = parseInt(b.prior === 'auto' ? prioridadAuto(db) : b.prior);
-  return pa - pb;
+
+  // 1° Estado: atrasado(0) > próximo(1) > en plazo(2)
+  const estadoOrden = d => {
+    if (d === null) return 3;
+    if (d < 0) return 0;
+    if (d <= ad()) return 1;
+    return 2;
+  };
+  const ea = estadoOrden(da);
+  const eb = estadoOrden(db);
+  if (ea !== eb) return ea - eb;
+
+  // 2° Prioridad: 1 Crítica primero
+  const pa = parseInt(a.prior === 'auto' ? prioridadAuto(da) : a.prior) || 4;
+  const pb = parseInt(b.prior === 'auto' ? prioridadAuto(db) : b.prior) || 4;
+  if (pa !== pb) return pa - pb;
+
+  // 3° Responsable: alfabético
+  return (a.resp || '').localeCompare(b.resp || '');
 }
 
 function dias(obj, etapa) {
