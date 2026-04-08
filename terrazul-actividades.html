@@ -54,7 +54,8 @@ body{font-family:var(--fb);background:var(--gray-100);color:var(--navy);min-heig
 
 /* STATS */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
-.stat-card{background:#fff;border-radius:var(--r);padding:16px 18px;box-shadow:var(--sh);border:1px solid var(--gray-200);position:relative;overflow:hidden}
+.stat-card{background:#fff;border-radius:var(--r);padding:16px 18px;box-shadow:var(--sh);border:1px solid var(--gray-200);position:relative;overflow:hidden;transition:box-shadow .15s,transform .15s}
+.stat-card:hover{box-shadow:var(--shm);transform:translateY(-2px)}
 .stat-card::after{content:'';position:absolute;bottom:0;left:0;height:3px;width:100%}
 .stat-card.c-total::after{background:#2A9D8F}.stat-card.c-red::after{background:var(--red)}
 .stat-card.c-green::after{background:var(--green)}.stat-card.c-amber::after{background:var(--gold)}
@@ -1057,10 +1058,10 @@ function renderStats() {
   const ok = act.filter(a => { const d=dias(a.obj,a.etapa); return d!==null&&d>ad(); }).length;
   const term = ACTIVIDADES.filter(a => a.etapa==='Terminado').length;
   document.getElementById('stats-grid').innerHTML = `
-    <div class="stat-card c-total"><div class="stat-label">Activas</div><div class="stat-num">${act.length}</div><div class="stat-sub">${term} terminadas</div></div>
-    <div class="stat-card c-red"><div class="stat-label">Atrasadas</div><div class="stat-num" style="color:var(--red)">${atr}</div><div class="stat-sub">Requieren atención urgente</div></div>
-    <div class="stat-card c-amber"><div class="stat-label">Próximas a vencer</div><div class="stat-num" style="color:var(--amber)">${aler}</div><div class="stat-sub">≤ ${ad()} días restantes</div></div>
-    <div class="stat-card c-green"><div class="stat-label">En plazo</div><div class="stat-num" style="color:var(--green)">${ok}</div><div class="stat-sub">Sin urgencia inmediata</div></div>`;
+    <div class="stat-card c-total" style="cursor:pointer" onclick="filtrarPorEstado('todos')" title="Ver todas las actividades"><div class="stat-label">Activas</div><div class="stat-num">${act.length}</div><div class="stat-sub">${term} terminadas</div></div>
+    <div class="stat-card c-red" style="cursor:pointer" onclick="filtrarPorEstado('atrasado')" title="Ver atrasadas"><div class="stat-label">Atrasadas</div><div class="stat-num" style="color:var(--red)">${atr}</div><div class="stat-sub">Requieren atención urgente</div></div>
+    <div class="stat-card c-amber" style="cursor:pointer" onclick="filtrarPorEstado('alerta')" title="Ver próximas a vencer"><div class="stat-label">Próximas a vencer</div><div class="stat-num" style="color:var(--amber)">${aler}</div><div class="stat-sub">≤ ${ad()} días restantes</div></div>
+    <div class="stat-card c-green" style="cursor:pointer" onclick="filtrarPorEstado('ok')" title="Ver en plazo"><div class="stat-label">En plazo</div><div class="stat-num" style="color:var(--green)">${ok}</div><div class="stat-sub">Sin urgencia inmediata</div></div>`;
 }
 
 // ======================================================
@@ -1120,6 +1121,23 @@ function renderActs() {
         <button class="ib del" onclick="eliminarAct(${a.id})" title="Eliminar">🗑️</button>
       </div></td></tr>`;
   }).join('');
+}
+
+function filtrarPorEstado(estado) {
+  // Navegar a la página de actividades
+  const navEl = [...document.querySelectorAll('.nav-item')].find(el => el.textContent.includes('Actividades'));
+  nav('actividades', navEl);
+  // Activar el pill correspondiente
+  setTimeout(() => {
+    const pill = [...document.querySelectorAll('.pill')].find(p => {
+      if (estado === 'todos') return p.textContent.trim() === 'Todos';
+      if (estado === 'atrasado') return p.textContent.trim() === 'Atrasados';
+      if (estado === 'alerta') return p.textContent.trim() === 'Alerta';
+      if (estado === 'ok') return p.textContent.trim() === 'En plazo';
+      return false;
+    });
+    if (pill) setPill(pill, estado);
+  }, 50);
 }
 
 function setPill(el, val) {
