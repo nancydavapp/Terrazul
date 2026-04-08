@@ -911,7 +911,8 @@ function normFecha(val) {
 function rowsToActs(rows) {
   return rows.slice(1).filter(r=>r[0]).map(r=>({
     id:parseInt(r[0]),cliente:r[1],empresa:r[2],tarea:r[3],desc:r[4],
-    sol:normFecha(r[5]),resp:r[6],etapa:r[7],obj:normFecha(r[8]),ubic:r[9],obs:r[10],link:r[11]||''
+    sol:normFecha(r[5]),resp:r[6],etapa:r[7],obj:normFecha(r[8]),ubic:r[9],obs:r[10],link:r[11]||'',
+    prior:r[12]||'auto'
   }));
 }
 function rowsToEmps(rows) {
@@ -923,8 +924,8 @@ function rowsToResps(rows) {
 
 // Convierte objetos → array de arrays para guardar en Sheet
 function actsToRows(acts) {
-  return [['id','cliente','empresa','tarea','desc','sol','resp','etapa','obj','ubic','obs','link'],
-    ...acts.map(a=>[a.id,a.cliente,a.empresa,a.tarea,a.desc,a.sol,a.resp,a.etapa,a.obj,a.ubic,a.obs,a.link||''])];
+  return [['id','cliente','empresa','tarea','desc','sol','resp','etapa','obj','ubic','obs','link','prior'],
+    ...acts.map(a=>[a.id,a.cliente,a.empresa,a.tarea,a.desc,a.sol,a.resp,a.etapa,a.obj,a.ubic,a.obs,a.link||'',a.prior||'auto'])];
 }
 function empsToRows(emps) {
   return [['cliente','rut','nombre'],...emps];
