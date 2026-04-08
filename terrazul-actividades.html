@@ -523,7 +523,17 @@ td{padding:9px 12px;color:var(--navy);vertical-align:middle}
           </div>
           <div id="upload-status" style="font-size:11px;color:var(--gray-400);margin-top:4px"></div>
         </div>
-        <div class="fg-full"><label class="fl">Comentarios u Observaciones</label><textarea id="f-obs" placeholder="Historial de gestiones, notas..."></textarea></div>
+        <div class="fg-full">
+          <label class="fl">Historial de Comentarios</label>
+          <div id="f-obs-historial" style="background:var(--gray-100);border:1px solid var(--gray-200);border-radius:var(--rs);padding:10px;min-height:60px;max-height:180px;overflow-y:auto;font-size:12px;line-height:1.7;margin-bottom:8px;color:var(--navy)"></div>
+          <div style="display:flex;gap:8px;align-items:flex-start">
+            <select id="f-obs-autor" style="width:140px;flex-shrink:0">
+              <option value="">— Quién —</option>
+            </select>
+            <textarea id="f-obs-nuevo" rows="2" placeholder="Escribí tu comentario..." style="flex:1;resize:vertical"></textarea>
+            <button class="btn btn-primary btn-sm" style="flex-shrink:0;margin-top:2px" onclick="agregarComentario()">➕ Agregar</button>
+          </div>
+        </div>
       </div>
     </div>
     <div class="mf"><button class="btn btn-secondary" onclick="cerrarModal()">Cancelar</button><button class="btn btn-primary" onclick="guardarAct()">Guardar</button></div>
@@ -1393,7 +1403,9 @@ function abrirModal(id=null) {
     document.getElementById('f-ubic').value=a.ubic;
     document.getElementById('f-desc').value=a.desc;
     document.getElementById('f-link').value=a.link||'';
-    document.getElementById('f-obs').value=a.obs;
+    // Historial comentarios
+    renderHistorial(a.obs||'');
+    sincAutorSelect();
   } else {    document.getElementById('f-cliente').value=''; poblarEmpresas();
     document.getElementById('f-tarea').value='';
     document.getElementById('f-resp').value=RESPONSABLES[0]?.nombre||'';
@@ -1403,7 +1415,8 @@ function abrirModal(id=null) {
     document.getElementById('f-ubic').value=CAT_UBICACIONES[0]||'';
     document.getElementById('f-desc').value='';
     document.getElementById('f-link').value='';
-    document.getElementById('f-obs').value='';
+    renderHistorial('');
+    sincAutorSelect();
   }
   const st = document.getElementById('upload-status');
   if (st) st.textContent = '';
@@ -1423,7 +1436,7 @@ function guardarAct() {
     etapa:document.getElementById('f-etapa').value,
     obj:document.getElementById('f-obj').value,
     ubic:document.getElementById('f-ubic').value,
-    obs:document.getElementById('f-obs').value,
+    obs:document.getElementById('f-obs-historial').dataset.raw||'',
     link:document.getElementById('f-link').value,
   };
   if(!a.tarea||!a.empresa||!a.obj){toast('Completá tarea, empresa y fecha objetivo','e');return;}
@@ -1546,8 +1559,47 @@ function importarBackup(e) {
 }
 
 // ======================================================
-// CREAR DESDE EMAIL
+// HISTORIAL DE COMENTARIOS
 // ======================================================
+function sincAutorSelect() {
+  const sel = document.getElementById('f-obs-autor');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Quién —</option>' +
+    RESPONSABLES.map(r => `<option>${r.nombre}</option>`).join('');
+}
+
+function renderHistorial(raw) {
+  const el = document.getElementById('f-obs-historial');
+  el.dataset.raw = raw || '';
+  document.getElementById('f-obs-nuevo').value = '';
+  if (!raw) { el.innerHTML = '<span style="color:var(--gray-400)">Sin comentarios aún</span>'; return; }
+  el.innerHTML = raw.split('\n').filter(l=>l.trim()).map(l => {
+    const match = l.match(/^👤 (.+?) • (.+?): (.+)$/);
+    if (match) {
+      return `<div style="padding:4px 0;border-bottom:1px solid var(--gray-200)">
+        <span style="font-weight:600;color:var(--navy)">👤 ${match[1]}</span>
+        <span style="color:var(--gray-400);font-size:11px"> • ${match[2]}</span>
+        <div style="margin-top:2px">${match[3]}</div>
+      </div>`;
+    }
+    return `<div style="padding:4px 0;border-bottom:1px solid var(--gray-200)">${l}</div>`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function agregarComentario() {
+  const autor = document.getElementById('f-obs-autor').value;
+  const texto = document.getElementById('f-obs-nuevo').value.trim();
+  if (!autor) { toast('Seleccioná quién agrega el comentario','w'); return; }
+  if (!texto) { toast('Escribí un comentario','w'); return; }
+  const fecha = new Date().toLocaleDateString('es-CL');
+  const linea = `👤 ${autor} • ${fecha}: ${texto}`;
+  const el = document.getElementById('f-obs-historial');
+  const raw = el.dataset.raw ? el.dataset.raw + '\n' + linea : linea;
+  renderHistorial(raw);
+}
+
+
 function initDesdeEmail() {
   const sc = document.getElementById('er-cliente');
   const clientes = [...new Set(EMPRESAS.map(e => e.cliente))];
