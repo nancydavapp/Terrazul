@@ -360,6 +360,7 @@ td{padding:9px 12px;color:var(--navy);vertical-align:middle}
           </div>
           <input type="file" id="imp-file" accept=".xlsx,.xls" style="display:none" onchange="impFile(event)">
           <button class="btn btn-secondary btn-sm" style="width:100%;margin-top:8px" onclick="descargarPlantilla()">⬇️ Descargar plantilla</button>
+          <button class="btn btn-sm" style="width:100%;margin-top:8px;background:#fff3cd;color:#856404;border:1px solid #ffc107" onclick="limpiarDuplicados()">🧹 Limpiar duplicados</button>
         </div>
       </div>
     </div>
@@ -1200,6 +1201,26 @@ function cancelarEmp() {
   document.getElementById('ae-rut').value='';
   document.getElementById('ae-nombre').value='';
 }
+
+function limpiarDuplicados() {
+  const antes = EMPRESAS.length;
+  const vistos = new Set();
+  EMPRESAS = EMPRESAS.filter(e => {
+    const rut = e[1];
+    if (vistos.has(rut)) return false;
+    vistos.add(rut);
+    return true;
+  });
+  const eliminados = antes - EMPRESAS.length;
+  if (eliminados === 0) {
+    toast('No se encontraron duplicados ✅', 's');
+  } else {
+    sincAeSelects(); sincSelects(); renderAeStats(); renderEmpAdmin(); renderClientes();
+    guardarEnSheet('Empresas');
+    toast(`🧹 ${eliminados} empresa${eliminados !== 1 ? 's duplicadas eliminadas' : ' duplicada eliminada'}`, 's');
+  }
+}
+
 
 function guardarEmp() {
   const clEx=document.getElementById('ae-cliente').value.trim();
