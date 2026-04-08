@@ -400,6 +400,60 @@ td{padding:9px 12px;color:var(--navy);vertical-align:middle}
     <div class="stitle">📨 Recordatorios Pendientes</div>
     <div id="rem-preview"></div>
   </div>
+
+  <!-- PÁGINA: CREAR DESDE EMAIL -->
+  <div class="page" id="page-desde-email">
+    <div style="max-width:720px;margin:0 auto">
+      <div class="card" style="margin-bottom:16px">
+        <div class="stitle" style="margin-bottom:12px">✉️ Pegar contenido del email</div>
+        <p style="font-size:13px;color:var(--gray-600);margin-bottom:12px">
+          Copiá y pegá el texto completo del email. La IA extraerá automáticamente los datos para crear la actividad.
+        </p>
+        <textarea id="email-texto" rows="10" placeholder="Pegá aquí el contenido del email como referencia..." style="width:100%;font-size:13px;border:1px solid var(--gray-200);border-radius:var(--rs);padding:10px;resize:vertical;font-family:var(--fb)"></textarea>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="mostrarFormEmail()">📋 Completar datos</button>
+          <button class="btn btn-secondary" onclick="document.getElementById('email-texto').value=''">Limpiar</button>
+        </div>
+      </div>
+
+      <div id="email-resultado" style="display:none">
+        <div class="card">
+          <div class="stitle" style="margin-bottom:14px">📋 Datos extraídos — revisá y confirmá</div>
+          <div class="fg" style="gap:12px">
+            <div><label class="fl">Cliente</label>
+              <select id="er-cliente"><option value="">— Seleccionar —</option></select>
+            </div>
+            <div><label class="fl">Empresa</label>
+              <select id="er-empresa"><option value="">— Seleccionar —</option></select>
+            </div>
+            <div><label class="fl">Tarea / Actividad</label>
+              <input type="text" id="er-tarea">
+            </div>
+            <div><label class="fl">Responsable</label>
+              <select id="er-resp"><option value="">— Seleccionar —</option></select>
+            </div>
+            <div><label class="fl">Fecha Solicitud</label>
+              <input type="date" id="er-sol">
+            </div>
+            <div><label class="fl">Fecha Objetivo</label>
+              <input type="date" id="er-obj">
+            </div>
+            <div class="fg-full"><label class="fl">Descripción</label>
+              <textarea id="er-desc" rows="3"></textarea>
+            </div>
+            <div class="fg-full"><label class="fl">Observaciones</label>
+              <textarea id="er-obs" rows="2"></textarea>
+            </div>
+          </div>
+          <div style="margin-top:14px;display:flex;gap:8px">
+            <button class="btn btn-primary" onclick="crearDesdeEmail()">✅ Crear Actividad</button>
+            <button class="btn btn-secondary" onclick="document.getElementById('email-resultado').style.display='none'">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <!-- MODAL IMPORT PREVIEW -->
@@ -875,11 +929,12 @@ function nav(page, el) {
   document.getElementById('sidebar-overlay').classList.remove('open');
   const T = {dashboard:'Panel de Control',actividades:'Actividades',responsables:'Responsables',
     'admin-resp':'Administrar Responsables',clientes:'Clientes y Empresas',
-    'admin-emp':'Administrar Empresas',recordatorios:'Recordatorios'};
+    'admin-emp':'Administrar Empresas',recordatorios:'Recordatorios','desde-email':'Crear desde Email'};
   document.getElementById('page-title').textContent = T[page] || '';
   if (page === 'admin-emp') initAdminEmp();
   if (page === 'admin-resp') initAdminResp();
   if (page === 'recordatorios') renderRemPreview();
+  if (page === 'desde-email') initDesdeEmail();
 }
 
 // ======================================================
@@ -1373,7 +1428,7 @@ function eliminarAct(id) {
 // ======================================================
 function buildBody(resp, acts) {
   return ['Estimado/a '+resp,'',
-    'Te informamos que tenés las siguientes actividades pendientes:','',
+    'Te informamos que tienes las siguientes actividades pendientes:','',
     ...acts.map(a=>{const d=dias(a.obj,a.etapa);const est=d<0?`⚠️ ATRASADO ${Math.abs(d)} días`:`⏰ ${d} días restantes`;
       return `• ${a.empresa}\n  Trámite: ${a.tarea}\n  Etapa: ${a.etapa} | ${a.ubic}\n  Fecha objetivo: ${fecha(a.obj)} | ${est}`;}),
     '','Por favor tomar las acciones necesarias a la brevedad.','','Saludos,','Terrazul – Control de Actividades'
@@ -1467,6 +1522,61 @@ function importarBackup(e) {
     }catch{toast('Error al leer el backup','e');}
   };
   r.readAsText(file);
+}
+
+// ======================================================
+// CREAR DESDE EMAIL
+// ======================================================
+function initDesdeEmail() {
+  const sc = document.getElementById('er-cliente');
+  const clientes = [...new Set(EMPRESAS.map(e => e.cliente))];
+  sc.innerHTML = '<option value="">— Seleccionar —</option>' + clientes.map(c => `<option>${c}</option>`).join('');
+  sc.onchange = () => {
+    const se = document.getElementById('er-empresa');
+    const emp = EMPRESAS.filter(e => e.cliente === sc.value);
+    se.innerHTML = '<option value="">— Seleccionar —</option>' + emp.map(e => `<option>${e.nombre}</option>`).join('');
+  };
+  const sr = document.getElementById('er-resp');
+  sr.innerHTML = '<option value="">— Seleccionar —</option>' + RESPONSABLES.map(r => `<option>${r.nombre}</option>`).join('');
+}
+
+function mostrarFormEmail() {
+  const texto = document.getElementById('email-texto').value.trim();
+  if (!texto) { toast('Pegá el contenido del email primero','w'); return; }
+  const hoyStr = new Date().toISOString().split('T')[0];
+  document.getElementById('er-sol').value = hoyStr;
+  document.getElementById('email-resultado').style.display = 'block';
+  document.getElementById('email-resultado').scrollIntoView({behavior:'smooth'});
+}
+
+function crearDesdeEmail() {
+  const empresa = document.getElementById('er-empresa').value;
+  const tarea   = document.getElementById('er-tarea').value.trim();
+  if (!empresa) { toast('Seleccioná una empresa','w'); return; }
+  if (!tarea)   { toast('Completá la tarea','w'); return; }
+
+  const emp = EMPRESAS.find(e => e.nombre === empresa);
+  const resp = document.getElementById('er-resp').value;
+  const nueva = {
+    id: nextId++,
+    cliente: emp ? emp.cliente : '',
+    empresa, tarea,
+    desc:  document.getElementById('er-desc').value,
+    sol:   document.getElementById('er-sol').value,
+    resp,
+    etapa: 'Revisión solicitud',
+    obj:   document.getElementById('er-obj').value,
+    ubic:  `En revisión interna (${resp || 'Equipo'})`,
+    obs:   document.getElementById('er-obs').value,
+    link:  ''
+  };
+  ACTIVIDADES.push(nueva);
+  renderAll();
+  guardarEnSheet('Actividades');
+  toast('✅ Actividad creada desde email','s');
+  document.getElementById('email-texto').value = '';
+  document.getElementById('email-resultado').style.display = 'none';
+  nav('actividades', [...document.querySelectorAll('.nav-item')].find(el => el.textContent.includes('Actividades')));
 }
 
 // ======================================================
