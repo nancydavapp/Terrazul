@@ -807,12 +807,17 @@ function prioridadSort(a, b) {
   const eb = estadoOrden(db);
   if (ea !== eb) return ea - eb;
 
-  // 2° Prioridad: 1 Crítica primero
+  // 2° Días restantes: menos días primero
+  const daN = da ?? 9999;
+  const dbN = db ?? 9999;
+  if (daN !== dbN) return daN - dbN;
+
+  // 3° Prioridad: 1 Crítica primero
   const pa = parseInt(a.prior === 'auto' ? prioridadAuto(da) : a.prior) || 4;
   const pb = parseInt(b.prior === 'auto' ? prioridadAuto(db) : b.prior) || 4;
   if (pa !== pb) return pa - pb;
 
-  // 3° Responsable: alfabético
+  // 4° Responsable: alfabético
   return (a.resp || '').localeCompare(b.resp || '');
 }
 
