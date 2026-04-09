@@ -1832,32 +1832,37 @@ async function analizarEmailIA() {
 
     if (parsed.error) throw new Error(parsed.error);
 
-    document.getElementById('er-tarea').value = parsed.tarea || '';
-    document.getElementById('er-desc').value  = parsed.desc  || '';
-    document.getElementById('er-obs').value   = parsed.obs   || '';
-    document.getElementById('er-sol').value   = parsed.sol   || hoyStr;
-    document.getElementById('er-obj').value   = parsed.obj   || '';
-
-    if (parsed.resp) {
-      const sr = document.getElementById('er-resp');
-      [...sr.options].forEach(o => { if (o.value === parsed.resp) o.selected = true; });
-    }
-    if (parsed.empresa) {
-      const emp = EMPRESAS.find(e => `${e[1]} ${e[2]}`.toLowerCase().includes(parsed.empresa.toLowerCase()) || parsed.empresa.toLowerCase().includes(e[2].toLowerCase()));
-      if (emp) {
-        const sc = document.getElementById('er-cliente');
-        [...sc.options].forEach(o => { if (o.value === emp[0]) o.selected = true; });
-        sc.dispatchEvent(new Event('change'));
-        setTimeout(() => {
-          const se = document.getElementById('er-empresa');
-          const nombreCompleto = `${emp[0]} – ${emp[1]} ${emp[2]}`;
-          [...se.options].forEach(o => { if (o.value === nombreCompleto) o.selected = true; });
-        }, 150);
-      }
-    }
+    // Mostrar formulario primero
     document.getElementById('email-resultado').style.display = 'block';
-    document.getElementById('email-resultado').scrollIntoView({behavior:'smooth'});
-    toast('✅ Email analizado correctamente','s');
+    
+    // Luego poblar campos
+    setTimeout(() => {
+      document.getElementById('er-tarea').value = parsed.tarea || '';
+      document.getElementById('er-desc').value  = parsed.desc  || '';
+      document.getElementById('er-obs').value   = parsed.obs   || '';
+      document.getElementById('er-sol').value   = parsed.sol   || hoyStr;
+      document.getElementById('er-obj').value   = parsed.obj   || '';
+
+      if (parsed.resp) {
+        const sr = document.getElementById('er-resp');
+        [...sr.options].forEach(o => { if (o.value === parsed.resp) o.selected = true; });
+      }
+      if (parsed.empresa) {
+        const emp = EMPRESAS.find(e => `${e[1]} ${e[2]}`.toLowerCase().includes(parsed.empresa.toLowerCase()) || parsed.empresa.toLowerCase().includes(e[2].toLowerCase()));
+        if (emp) {
+          const sc = document.getElementById('er-cliente');
+          [...sc.options].forEach(o => { if (o.value === emp[0]) o.selected = true; });
+          sc.dispatchEvent(new Event('change'));
+          setTimeout(() => {
+            const se = document.getElementById('er-empresa');
+            const nombreCompleto = `${emp[0]} – ${emp[1]} ${emp[2]}`;
+            [...se.options].forEach(o => { if (o.value === nombreCompleto) o.selected = true; });
+          }, 200);
+        }
+      }
+      document.getElementById('email-resultado').scrollIntoView({behavior:'smooth'});
+      toast('✅ Email analizado correctamente','s');
+    }, 100);
   } catch(err) {
     toast('Error al analizar el email — completá manualmente','w');
     mostrarFormEmail();
