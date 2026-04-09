@@ -943,7 +943,7 @@ function clientes() { return [...new Set(EMPRESAS.map(e=>e[0]))].sort(); }
 const API_URL = 'https://script.google.com/macros/s/AKfycbxfNAcNmkr4OK7grzl-z0xJbFpXFcLMzTzxOc6aLXio6Mu1SH4abY8jQZjWsLl1Xvsu/exec';
 
 async function sheetRead(sheet) {
-  const r = await fetch(`${API_URL}?action=read&sheet=${sheet}`);
+  const r = await fetch(`${API_URL}?sheet=${sheet}`);
   return await r.json();
 }
 
