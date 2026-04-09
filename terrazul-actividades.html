@@ -2063,7 +2063,7 @@ async function exportarActividades() {
   ws.getRow(3).height = 6;
 
   // Encabezados fila 4
-  const headers = ['Cliente – Empresa','Tarea / Actividad','Descripción','Fecha Solicitud','Responsable','Etapa','Fecha Objetivo','Ubicación / Estado SII','Días Rest.','Estado Plazo','Prioridad','Creado por','Observaciones'];
+  const headers = ['Cliente – Empresa','Tarea / Actividad','Descripción','Fecha Solicitud','Responsable','Etapa','Fecha Objetivo','Ubicación / Estado SII','Días Rest.','Estado Plazo','Prioridad','Creado por','Fecha Creación','Observaciones'];
   const hRow = ws.getRow(4);
   hRow.height = 28;
   headers.forEach((h, i) => {
@@ -2085,7 +2085,7 @@ async function exportarActividades() {
     else if (d !== null && d > ad()) bgColor = 'FFD4F0E0';
 
     const priorLabel = {auto:'Automática','1':'1 Crítica','2':'2 Alta','3':'3 Media','4':'4 Normal'}[a.prior||'auto'] || 'Automática';
-    const row = ws.addRow([a.empresa, a.tarea, a.desc, a.sol, a.resp, a.etapa, a.obj, a.ubic, d ?? '', estadoTxt, priorLabel, a.creadoPor||'', a.obs]);
+    const row = ws.addRow([a.empresa, a.tarea, a.desc, a.sol, a.resp, a.etapa, a.obj, a.ubic, d ?? '', estadoTxt, priorLabel, a.creadoPor||'', a.fechaCreacion||'', a.obs]);
     row.height = 40;
     row.eachCell(cell => {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
@@ -2101,7 +2101,7 @@ async function exportarActividades() {
   // Anchos
   ws.columns = [
     {width:35},{width:26},{width:38},{width:13},{width:13},
-    {width:20},{width:13},{width:28},{width:10},{width:16},{width:13},{width:14},{width:38}
+    {width:20},{width:13},{width:28},{width:10},{width:16},{width:13},{width:14},{width:14},{width:38}
   ];
 
   // Descargar
