@@ -101,7 +101,7 @@ table{width:100%;border-collapse:collapse;font-size:12px}
 thead th{background:var(--navy);color:rgba(255,255,255,.85);padding:10px 12px;text-align:left;font-weight:500;font-size:10px;letter-spacing:.8px;text-transform:uppercase;white-space:nowrap}
 tbody tr{border-bottom:1px solid var(--gray-200);transition:background .1s}
 tbody tr:last-child{border-bottom:none}
-tbody tr:hover{background:var(--gray-100)}
+tbody tr:hover{background:var(--gray-100);cursor:pointer}
 td{padding:9px 12px;color:var(--navy);vertical-align:middle}
 .no-rows{text-align:center;padding:26px;color:var(--gray-400);font-size:13px}
 
@@ -244,6 +244,7 @@ td{padding:9px 12px;color:var(--navy);vertical-align:middle}
       <button class="hamburger" onclick="toggleSidebar()" aria-label="Menú">
         <span></span><span></span><span></span>
       </button>
+      <button class="btn btn-secondary btn-sm" onclick="nav('dashboard', document.querySelector('.nav-item'))" title="Inicio" style="padding:6px 10px">🏠</button>
       <div class="topbar-title" id="page-title">Panel de Control</div>
     </div>
     <div class="topbar-actions">
@@ -485,6 +486,20 @@ td{padding:9px 12px;color:var(--navy);vertical-align:middle}
       </div>
     </div>
     <div class="mf"><button class="btn btn-secondary" onclick="cerrarImpModal()">Cancelar</button><button class="btn btn-primary" id="imp-btn" onclick="confirmarImp()">✅ Importar</button></div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE ACTIVIDAD -->
+<div class="overlay" id="detalle-overlay" onclick="if(event.target===this)cerrarDetalle()">
+  <div class="modal" style="max-width:600px">
+    <div class="mh">
+      <div class="mt">📋 Detalle de Actividad</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" id="detalle-edit-btn">✏️ Editar</button>
+        <button class="xbtn" onclick="cerrarDetalle()">×</button>
+      </div>
+    </div>
+    <div class="mb" id="detalle-content" style="display:grid;gap:12px"></div>
   </div>
 </div>
 
@@ -1119,7 +1134,7 @@ function renderActs() {
   if (!list.length) { tb.innerHTML=`<tr><td colspan="11" class="no-rows">Sin resultados</td></tr>`; return; }
   tb.innerHTML = list.map(a => {
     const d = dias(a.obj,a.etapa);
-    return `<tr>
+    return `<tr style="cursor:pointer" onclick="verDetalle(${a.id})">
       <td>${empHTML(a.empresa)}</td>
       <td style="font-weight:500">${a.tarea}</td>
       <td style="font-size:11px;color:var(--gray-600);max-width:190px">${a.desc}</td>
@@ -1127,10 +1142,10 @@ function renderActs() {
       <td style="font-weight:500">${a.resp}</td>
       <td style="font-size:11px;color:var(--gray-400)">${fecha(a.sol)}</td>
       <td style="font-size:11px">${fecha(a.obj)}</td>
-      <td>${prioridadBadge(a.prior||'auto',d,a.id)}</td>
+      <td onclick="event.stopPropagation()">${prioridadBadge(a.prior||'auto',d,a.id)}</td>
       <td>${diasChip(d,a.etapa)}</td>
       <td>${estadoBadge(d,a.etapa)}</td>
-      <td><div class="td-actions">
+      <td onclick="event.stopPropagation()"><div class="td-actions">
         <button class="ib edit" onclick="abrirModal(${a.id})" title="Editar">✏️</button>
         ${a.link ? `<a href="${a.link}" target="_blank" class="ib" title="Ver documentos" style="text-decoration:none">📎</a>` : ''}
         <button class="ib mail" onclick="emailAct(${a.id})" title="Recordatorio">📧</button>
@@ -1696,8 +1711,53 @@ function importarBackup(e) {
 }
 
 // ======================================================
-// HISTORIAL DE COMENTARIOS
+// DETALLE DE ACTIVIDAD (solo lectura)
 // ======================================================
+function verDetalle(id) {
+  const a = ACTIVIDADES.find(x => x.id === id);
+  if (!a) return;
+  const d = dias(a.obj, a.etapa);
+
+  const campo = (label, valor, html=false) => `
+    <div style="border-bottom:1px solid var(--gray-200);padding-bottom:8px">
+      <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--gray-400);margin-bottom:3px">${label}</div>
+      <div style="font-size:13px;color:var(--navy)">${html ? valor : (valor || '—')}</div>
+    </div>`;
+
+  document.getElementById('detalle-content').innerHTML = `
+    ${campo('Empresa', empHTML(a.empresa), true)}
+    ${campo('Tarea / Actividad', `<span style="font-weight:600">${a.tarea}</span>`, true)}
+    ${campo('Descripción', a.desc)}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      ${campo('Responsable', a.resp)}
+      ${campo('Prioridad', prioridadBadge(a.prior||'auto', d), true)}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      ${campo('Fecha Solicitud', fecha(a.sol))}
+      ${campo('Fecha Objetivo', fecha(a.obj))}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      ${campo('Etapa', `<span class="badge badge-teal">${a.etapa}</span>`, true)}
+      ${campo('Estado', `${diasChip(d,a.etapa)} ${estadoBadge(d,a.etapa)}`, true)}
+    </div>
+    ${campo('Ubicación / Estado SII', a.ubic)}
+    ${a.link ? campo('Documento', `<a href="${a.link}" target="_blank" style="color:var(--teal)">📎 Ver documento</a>`, true) : ''}
+    ${campo('Historial de Comentarios', a.obs ? 
+      a.obs.split('\n').filter(l=>l.trim()).map(l => {
+        const m = l.match(/^👤 (.+?) • (.+?): (.+)$/);
+        return m ? `<div style="padding:4px 0;border-bottom:1px solid var(--gray-200)"><span style="font-weight:600">👤 ${m[1]}</span> <span style="color:var(--gray-400);font-size:11px">• ${m[2]}</span><div style="margin-top:2px">${m[3]}</div></div>` : `<div>${l}</div>`;
+      }).join('') : '<span style="color:var(--gray-400)">Sin comentarios</span>', true)}
+  `;
+
+  document.getElementById('detalle-edit-btn').onclick = () => { cerrarDetalle(); abrirModal(id); };
+  document.getElementById('detalle-overlay').classList.add('open');
+}
+
+function cerrarDetalle() {
+  document.getElementById('detalle-overlay').classList.remove('open');
+}
+
+
 function sincAutorSelect() {
   const sel = document.getElementById('f-obs-autor');
   if (!sel) return;
