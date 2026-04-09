@@ -1792,8 +1792,12 @@ function agregarComentario() {
 
 
 function initDesdeEmail() {
+  recargarSelectsEmail();
+}
+
+function recargarSelectsEmail() {
   const sc = document.getElementById('er-cliente');
-  const clientes = [...new Set(EMPRESAS.map(e => e[0]).filter(Boolean))];
+  const clientes = [...new Set(EMPRESAS.map(e => e[0]).filter(Boolean))].sort();
   sc.innerHTML = '<option value="">— Seleccionar —</option>' + clientes.map(c => `<option value="${c}">${c}</option>`).join('');
   sc.onchange = () => {
     const se = document.getElementById('er-empresa');
@@ -1810,6 +1814,8 @@ function initDesdeEmail() {
 async function analizarEmailIA() {
   const texto = document.getElementById('email-texto').value.trim();
   if (!texto) { toast('Pegá el contenido del email primero','w'); return; }
+
+  recargarSelectsEmail();
 
   document.getElementById('email-loading').style.display = 'block';
   document.getElementById('email-resultado').style.display = 'none';
@@ -1862,7 +1868,7 @@ async function analizarEmailIA() {
       }
       document.getElementById('email-resultado').scrollIntoView({behavior:'smooth'});
       toast('✅ Email analizado correctamente','s');
-    }, 100);
+    }, 500);
   } catch(err) {
     toast('Error al analizar el email — completá manualmente','w');
     mostrarFormEmail();
@@ -1874,6 +1880,7 @@ async function analizarEmailIA() {
 function mostrarFormEmail() {
   const texto = document.getElementById('email-texto').value.trim();
   if (!texto) { toast('Pegá el contenido del email primero','w'); return; }
+  recargarSelectsEmail();
   const hoyStr = new Date().toISOString().split('T')[0];
   document.getElementById('er-sol').value = hoyStr;
   document.getElementById('email-resultado').style.display = 'block';
