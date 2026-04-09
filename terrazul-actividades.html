@@ -224,6 +224,7 @@ td{padding:9px 12px;color:var(--navy);vertical-align:middle}
     <div class="nav-item" onclick="nav('clientes',this)">🏢 Clientes y Empresas</div>
     <div class="nav-item" onclick="nav('admin-emp',this)">⚙️ Administrar Empresas</div>
     <div class="nav-item" onclick="nav('recordatorios',this)">📧 Recordatorios</div>
+    <div class="nav-item" onclick="nav('desde-email',this)">✉️ Crear desde Email</div>
   </nav>
   <div class="sidebar-footer">v2.0 · Terrazul 2026</div>
 </aside>
@@ -419,11 +420,13 @@ td{padding:9px 12px;color:var(--navy);vertical-align:middle}
         <p style="font-size:13px;color:var(--gray-600);margin-bottom:12px">
           Copiá y pegá el texto completo del email. La IA extraerá automáticamente los datos para crear la actividad.
         </p>
-        <textarea id="email-texto" rows="10" placeholder="Pegá aquí el contenido del email como referencia..." style="width:100%;font-size:13px;border:1px solid var(--gray-200);border-radius:var(--rs);padding:10px;resize:vertical;font-family:var(--fb)"></textarea>
-        <div style="margin-top:10px;display:flex;gap:8px">
-          <button class="btn btn-primary" onclick="mostrarFormEmail()">📋 Completar datos</button>
+        <textarea id="email-texto" rows="10" placeholder="Pegá aquí el contenido del email..." style="width:100%;font-size:13px;border:1px solid var(--gray-200);border-radius:var(--rs);padding:10px;resize:vertical;font-family:var(--fb)"></textarea>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="analizarEmailIA()">🤖 Analizar con IA</button>
+          <button class="btn btn-secondary" onclick="mostrarFormEmail()">📋 Completar manualmente</button>
           <button class="btn btn-secondary" onclick="document.getElementById('email-texto').value=''">Limpiar</button>
         </div>
+        <div id="email-loading" style="display:none;margin-top:10px;font-size:13px;color:var(--amber)">⏳ Analizando email con Gemini...</div>
       </div>
 
       <div id="email-resultado" style="display:none">
@@ -710,6 +713,8 @@ let ACTIVIDADES = [
    desc:'Se debe informar sucursal donde está ubicada la planta solar.',
    sol:'2026-01-12',resp:'Valentín',etapa:'Presentación SII',obj:'2026-01-29',ubic:'En revisión SII',obs:''},
 ];
+
+const GEMINI_KEY = 'AIzaSyDyGyGp1QVOAyu64QhzgQPaYZguLFNVPX0';
 
 const TIEMPOS = {
   'Actualización de capital':13,'Actualización de domicilio':13,'Actualización de socios':13,
@@ -1799,6 +1804,78 @@ function initDesdeEmail() {
   };
   const sr = document.getElementById('er-resp');
   sr.innerHTML = '<option value="">— Seleccionar —</option>' + RESPONSABLES.map(r => `<option>${r.nombre}</option>`).join('');
+}
+
+async function analizarEmailIA() {
+  const texto = document.getElementById('email-texto').value.trim();
+  if (!texto) { toast('Pegá el contenido del email primero','w'); return; }
+
+  document.getElementById('email-loading').style.display = 'block';
+  document.getElementById('email-resultado').style.display = 'none';
+
+  const responsablesLista = RESPONSABLES.map(r => r.nombre).join(', ');
+  const empresasLista = EMPRESAS.map(e => e.nombre).join(', ');
+  const hoyStr = new Date().toISOString().split('T')[0];
+
+  const prompt = `Eres un asistente que extrae información de emails para crear actividades de gestión tributaria/SII en Chile.
+
+Analiza este email y extrae los siguientes datos en formato JSON:
+- tarea: título corto de la actividad (máx 60 caracteres)
+- desc: descripción más detallada
+- obs: observaciones o notas relevantes
+- sol: fecha de solicitud en formato YYYY-MM-DD (si no hay, usa hoy: ${hoyStr})
+- obj: fecha objetivo/plazo en formato YYYY-MM-DD (si no hay, deja vacío "")
+- resp: responsable más probable entre: ${responsablesLista} (si no hay pista, deja vacío "")
+- empresa: empresa mencionada entre: ${empresasLista} (busca por RUT o nombre exacto, si no coincide deja vacío "")
+
+Email:
+${texto}
+
+Responde SOLO con el JSON válido, sin explicaciones ni backticks.`;
+
+  try {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent?key=' + GEMINI_KEY, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    });
+    const data = await response.json();
+    const text = data.candidates[0].content.parts[0].text;
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    // Poblar formulario
+    document.getElementById('er-tarea').value = parsed.tarea || '';
+    document.getElementById('er-desc').value  = parsed.desc  || '';
+    document.getElementById('er-obs').value   = parsed.obs   || '';
+    document.getElementById('er-sol').value   = parsed.sol   || hoyStr;
+    document.getElementById('er-obj').value   = parsed.obj   || '';
+
+    if (parsed.resp) {
+      const sr = document.getElementById('er-resp');
+      [...sr.options].forEach(o => { if (o.value === parsed.resp) o.selected = true; });
+    }
+    if (parsed.empresa) {
+      const emp = EMPRESAS.find(e => e.nombre === parsed.empresa);
+      if (emp) {
+        const sc = document.getElementById('er-cliente');
+        [...sc.options].forEach(o => { if (o.value === emp.cliente) o.selected = true; });
+        sc.dispatchEvent(new Event('change'));
+        setTimeout(() => {
+          const se = document.getElementById('er-empresa');
+          [...se.options].forEach(o => { if (o.value === emp.nombre) o.selected = true; });
+        }, 150);
+      }
+    }
+    document.getElementById('email-resultado').style.display = 'block';
+    document.getElementById('email-resultado').scrollIntoView({behavior:'smooth'});
+    toast('✅ Email analizado correctamente','s');
+  } catch(err) {
+    toast('Error al analizar el email — completá manualmente','w');
+    mostrarFormEmail();
+  } finally {
+    document.getElementById('email-loading').style.display = 'none';
+  }
 }
 
 function mostrarFormEmail() {
