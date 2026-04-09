@@ -208,7 +208,7 @@ td{padding:9px 12px;color:var(--navy);vertical-align:middle}
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
 <!-- MODAL SELECTOR DE USUARIO -->
-<div class="overlay" id="user-overlay" style="z-index:9999;background:rgba(12,12,89,0.92)">
+<div class="overlay" id="user-overlay" style="display:none;z-index:9999;background:rgba(12,12,89,0.92)">
   <div class="modal" style="max-width:380px;text-align:center">
     <div class="mh" style="justify-content:center;border-bottom:1px solid var(--gray-200)">
       <div class="mt">👋 ¿Quién eres?</div>
@@ -742,10 +742,11 @@ let editActId = null;
 let editRespIdx = null;
 let editEmpIdx = null;
 let USUARIO_ACTUAL = localStorage.getItem('terrazul_usuario') || '';
+let pillActivo = 'todos';
 
 function initUsuario() {
   if (USUARIO_ACTUAL) {
-    document.getElementById('user-overlay').classList.remove('open');
+    document.getElementById('user-overlay').style.display = 'none';
     actualizarUsuarioUI();
     return;
   }
@@ -754,13 +755,13 @@ function initUsuario() {
     <button class="btn btn-primary" style="width:100%;padding:12px;font-size:15px" onclick="seleccionarUsuario('${r.nombre}')">
       👤 ${r.nombre}
     </button>`).join('');
-  document.getElementById('user-overlay').classList.add('open');
+  document.getElementById('user-overlay').style.display = 'flex';
 }
 
 function seleccionarUsuario(nombre) {
   USUARIO_ACTUAL = nombre;
   localStorage.setItem('terrazul_usuario', nombre);
-  document.getElementById('user-overlay').classList.remove('open');
+  document.getElementById('user-overlay').style.display = 'none';
   actualizarUsuarioUI();
 }
 
@@ -944,7 +945,8 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxfNAcNmkr4OK7grzl-z0xJ
 
 async function sheetRead(sheet) {
   const r = await fetch(`${API_URL}?sheet=${sheet}`);
-  return await r.json();
+  const data = await r.json();
+  return data;
 }
 
 async function sheetWrite(sheet, data) {
@@ -992,7 +994,6 @@ function rowsToResps(rows) {
   return rows.slice(1).filter(r=>r[0]).map(r=>({nombre:r[0],email:r[1]}));
 }
 
-// Convierte objetos → array de arrays para guardar en Sheet
 function actsToRows(acts) {
   return [['id','cliente','empresa','tarea','desc','sol','resp','etapa','obj','ubic','obs','link','prior','creadoPor','fechaCreacion'],
     ...acts.map(a=>[a.id,a.cliente,a.empresa,a.tarea,a.desc,a.sol,a.resp,a.etapa,a.obj,a.ubic,a.obs,a.link||'',a.prior||'auto',a.creadoPor||'',a.fechaCreacion||''])];
@@ -1067,8 +1068,8 @@ async function cargarDesdeSheet() {
   sincSelects();
   poblarSelectsCategorias();
   document.getElementById('f-sol').value = hoy();
-  initUsuario();
   renderAll();
+  setTimeout(initUsuario, 500);
 }
 
 function mostrarCargando(show) {
