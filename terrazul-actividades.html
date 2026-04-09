@@ -2063,7 +2063,7 @@ async function exportarActividades() {
   ws.getRow(3).height = 6;
 
   // Encabezados fila 4
-  const headers = ['Cliente – Empresa','Tarea / Actividad','Descripción','Fecha Solicitud','Responsable','Etapa','Fecha Objetivo','Ubicación / Estado SII','Días Rest.','Estado Plazo','Observaciones'];
+  const headers = ['Cliente – Empresa','Tarea / Actividad','Descripción','Fecha Solicitud','Responsable','Etapa','Fecha Objetivo','Ubicación / Estado SII','Días Rest.','Estado Plazo','Prioridad','Creado por','Observaciones'];
   const hRow = ws.getRow(4);
   hRow.height = 28;
   headers.forEach((h, i) => {
@@ -2084,7 +2084,8 @@ async function exportarActividades() {
     else if (d !== null && d <= ad()) bgColor = 'FFFFF0CC';
     else if (d !== null && d > ad()) bgColor = 'FFD4F0E0';
 
-    const row = ws.addRow([a.empresa, a.tarea, a.desc, a.sol, a.resp, a.etapa, a.obj, a.ubic, d ?? '', estadoTxt, a.obs]);
+    const priorLabel = {auto:'Automática','1':'1 Crítica','2':'2 Alta','3':'3 Media','4':'4 Normal'}[a.prior||'auto'] || 'Automática';
+    const row = ws.addRow([a.empresa, a.tarea, a.desc, a.sol, a.resp, a.etapa, a.obj, a.ubic, d ?? '', estadoTxt, priorLabel, a.creadoPor||'', a.obs]);
     row.height = 40;
     row.eachCell(cell => {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
@@ -2100,7 +2101,7 @@ async function exportarActividades() {
   // Anchos
   ws.columns = [
     {width:35},{width:26},{width:38},{width:13},{width:13},
-    {width:20},{width:13},{width:28},{width:10},{width:16},{width:38}
+    {width:20},{width:13},{width:28},{width:10},{width:16},{width:13},{width:14},{width:38}
   ];
 
   // Descargar
@@ -2120,10 +2121,10 @@ let impActRows = [];
 
 function descargarPlantillaActs() {
   const ws = XLSX.utils.aoa_to_sheet([
-    ['Cliente','Empresa (nombre visible)','Tarea / Actividad','Descripción','Fecha Solicitud','Responsable','Fecha Objetivo','Etapa','Ubicación / Estado SII','Observaciones'],
-    ['Talinay','Talinay – 77.131.386-8 La Sierra SpA','Verificación de actividad','Descripción del trámite','2026-01-13','Valentín','2026-01-30','Presentación SII','Enviado a SII','Observaciones'],
+    ['Cliente','Empresa (nombre visible)','Tarea / Actividad','Descripción','Fecha Solicitud','Responsable','Fecha Objetivo','Etapa','Ubicación / Estado SII','Observaciones','Prioridad','Creado por'],
+    ['Talinay','Talinay – 77.131.386-8 La Sierra SpA','Verificación de actividad','Descripción del trámite','2026-01-13','Valentín','2026-01-30','Presentación SII','Enviado a SII','Observaciones','auto','Nancy'],
   ]);
-  ws['!cols'] = [{wch:12},{wch:35},{wch:28},{wch:35},{wch:14},{wch:12},{wch:13},{wch:20},{wch:28},{wch:35}];
+  ws['!cols'] = [{wch:12},{wch:35},{wch:28},{wch:35},{wch:14},{wch:12},{wch:13},{wch:20},{wch:28},{wch:35},{wch:12},{wch:14}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Actividades');
   XLSX.writeFile(wb, 'Plantilla_Importacion_Actividades.xlsx');
@@ -2153,6 +2154,8 @@ function impActFile(e) {
       const cEtapa    = hdrs.findIndex(h=>h.includes('etapa'));
       const cUbic     = hdrs.findIndex(h=>h.includes('ubicaci')||h.includes('estado sii')||h.includes('ubic'));
       const cObs      = hdrs.findIndex(h=>h.includes('observ')||h.includes('comentar'));
+      const cPrior    = hdrs.findIndex(h=>h.includes('prioridad')||h.includes('prior'));
+      const cCreadoPor= hdrs.findIndex(h=>h.includes('creado por')||h.includes('creado'));
 
       if(cEmpresa===-1||cTarea===-1){toast('No encontré columnas Empresa y Tarea','e');return;}
 
@@ -2167,6 +2170,9 @@ function impActFile(e) {
         etapa:   cEtapa!==-1   ? String(r[cEtapa]||'').trim()   : 'Recepción solicitud',
         ubic:    cUbic!==-1    ? String(r[cUbic]||'').trim()    : '',
         obs:     cObs!==-1     ? String(r[cObs]||'').trim()     : '',
+        prior:   cPrior!==-1   ? String(r[cPrior]||'').trim()  : 'auto',
+        creadoPor: cCreadoPor!==-1 ? String(r[cCreadoPor]||'').trim() : USUARIO_ACTUAL||'',
+        fechaCreacion: hoy(),
       }));
 
       if(!impActRows.length){toast('El archivo no tiene filas de datos','e');return;}
