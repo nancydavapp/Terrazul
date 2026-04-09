@@ -418,7 +418,7 @@ td{padding:9px 12px;color:var(--navy);vertical-align:middle}
       <div class="card" style="margin-bottom:16px">
         <div class="stitle" style="margin-bottom:12px">✉️ Pegar contenido del email</div>
         <p style="font-size:13px;color:var(--gray-600);margin-bottom:12px">
-          Copiá y pegá el texto completo del email. La IA extraerá automáticamente los datos para crear la actividad.
+          Copia y pega el texto completo del email. La IA extraerá automáticamente los datos para crear la actividad.
         </p>
         <textarea id="email-texto" rows="10" placeholder="Pegá aquí el contenido del email..." style="width:100%;font-size:13px;border:1px solid var(--gray-200);border-radius:var(--rs);padding:10px;resize:vertical;font-family:var(--fb)"></textarea>
         <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
@@ -431,7 +431,7 @@ td{padding:9px 12px;color:var(--navy);vertical-align:middle}
 
       <div id="email-resultado" style="display:none">
         <div class="card">
-          <div class="stitle" style="margin-bottom:14px">📋 Datos extraídos — revisá y confirmá</div>
+          <div class="stitle" style="margin-bottom:14px">📋 Datos extraídos — revisa y confirma</div>
           <div class="fg" style="gap:12px">
             <div><label class="fl">Cliente</label>
               <select id="er-cliente"><option value="">— Seleccionar —</option></select>
@@ -1794,14 +1794,16 @@ function agregarComentario() {
 
 
 function initDesdeEmail() {
-  // Recargar selects cada vez que se abre la página
   const sc = document.getElementById('er-cliente');
   const clientes = [...new Set(EMPRESAS.map(e => e[0]).filter(Boolean))];
   sc.innerHTML = '<option value="">— Seleccionar —</option>' + clientes.map(c => `<option value="${c}">${c}</option>`).join('');
   sc.onchange = () => {
     const se = document.getElementById('er-empresa');
     const emp = EMPRESAS.filter(e => e[0] === sc.value);
-    se.innerHTML = '<option value="">— Seleccionar —</option>' + emp.map(e => `<option value="${e[0]} – ${e[1]} ${e[2]}">${e[0]} – ${e[1]} ${e[2]}</option>`).join('');
+    se.innerHTML = '<option value="">— Seleccionar —</option>' + emp.map(e => {
+      const nombre = `${e[0]} – ${e[1]} ${e[2]}`;
+      return `<option value="${nombre}">${e[1]} ${e[2]}</option>`;
+    }).join('');
   };
   const sr = document.getElementById('er-resp');
   sr.innerHTML = '<option value="">— Seleccionar —</option>' + RESPONSABLES.map(r => `<option value="${r.nombre}">${r.nombre}</option>`).join('');
@@ -1815,7 +1817,7 @@ async function analizarEmailIA() {
   document.getElementById('email-resultado').style.display = 'none';
 
   const responsablesLista = RESPONSABLES.map(r => r.nombre).join(', ');
-  const empresasLista = EMPRESAS.map(e => e.nombre).join(', ');
+  const empresasLista = EMPRESAS.map(e => `${e[1]} ${e[2]}`).join(', ');
   const hoyStr = new Date().toISOString().split('T')[0];
 
   const prompt = `Eres un asistente que extrae información de emails para crear actividades de gestión tributaria/SII en Chile.
@@ -1857,14 +1859,15 @@ Responde SOLO con el JSON válido, sin explicaciones ni backticks.`;
       [...sr.options].forEach(o => { if (o.value === parsed.resp) o.selected = true; });
     }
     if (parsed.empresa) {
-      const emp = EMPRESAS.find(e => e.nombre === parsed.empresa);
+      const emp = EMPRESAS.find(e => `${e[1]} ${e[2]}`.toLowerCase().includes(parsed.empresa.toLowerCase()) || parsed.empresa.toLowerCase().includes(e[2].toLowerCase()));
       if (emp) {
         const sc = document.getElementById('er-cliente');
-        [...sc.options].forEach(o => { if (o.value === emp.cliente) o.selected = true; });
+        [...sc.options].forEach(o => { if (o.value === emp[0]) o.selected = true; });
         sc.dispatchEvent(new Event('change'));
         setTimeout(() => {
           const se = document.getElementById('er-empresa');
-          [...se.options].forEach(o => { if (o.value === emp.nombre) o.selected = true; });
+          const nombreCompleto = `${emp[0]} – ${emp[1]} ${emp[2]}`;
+          [...se.options].forEach(o => { if (o.value === nombreCompleto) o.selected = true; });
         }, 150);
       }
     }
