@@ -982,7 +982,7 @@ function rowsToActs(rows) {
   return rows.slice(1).filter(r=>r[0]).map(r=>({
     id:parseInt(r[0]),cliente:r[1],empresa:r[2],tarea:r[3],desc:r[4],
     sol:normFecha(r[5]),resp:r[6],etapa:r[7],obj:normFecha(r[8]),ubic:r[9],obs:r[10],link:r[11]||'',
-    prior:r[12]||'auto'
+    prior:r[12]||'auto', creadoPor:r[13]||'', fechaCreacion:normFecha(r[14])||''
   }));
 }
 function rowsToEmps(rows) {
@@ -994,8 +994,8 @@ function rowsToResps(rows) {
 
 // Convierte objetos → array de arrays para guardar en Sheet
 function actsToRows(acts) {
-  return [['id','cliente','empresa','tarea','desc','sol','resp','etapa','obj','ubic','obs','link','prior'],
-    ...acts.map(a=>[a.id,a.cliente,a.empresa,a.tarea,a.desc,a.sol,a.resp,a.etapa,a.obj,a.ubic,a.obs,a.link||'',a.prior||'auto'])];
+  return [['id','cliente','empresa','tarea','desc','sol','resp','etapa','obj','ubic','obs','link','prior','creadoPor','fechaCreacion'],
+    ...acts.map(a=>[a.id,a.cliente,a.empresa,a.tarea,a.desc,a.sol,a.resp,a.etapa,a.obj,a.ubic,a.obs,a.link||'',a.prior||'auto',a.creadoPor||'',a.fechaCreacion||''])];
 }
 function empsToRows(emps) {
   return [['cliente','rut','nombre'],...emps];
@@ -1636,7 +1636,7 @@ function guardarAct() {
     ACTIVIDADES[i]={...ACTIVIDADES[i],...a};
     toast('Actividad actualizada','s');
   } else {
-    ACTIVIDADES.push({id:nextId++,...a});
+    ACTIVIDADES.push({id:nextId++,...a, creadoPor: USUARIO_ACTUAL || '', fechaCreacion: hoy()});
     toast('Actividad creada','s');
   }
   cerrarModal(); renderAll(); guardarEnSheet('Actividades');
@@ -1780,6 +1780,7 @@ function verDetalle(id) {
       ${campo('Estado', `${diasChip(d,a.etapa)} ${estadoBadge(d,a.etapa)}`, true)}
     </div>
     ${campo('Ubicación / Estado SII', a.ubic)}
+    ${a.creadoPor ? campo('Creado por', `👤 ${a.creadoPor}${a.fechaCreacion ? ' · ' + fecha(a.fechaCreacion) : ''}`) : ''}
     ${a.link ? campo('Documento', `<a href="${a.link}" target="_blank" style="color:var(--teal)">📎 Ver documento</a>`, true) : ''}
     ${campo('Historial de Comentarios', a.obs ? 
       a.obs.split('\n').filter(l=>l.trim()).map(l => {
