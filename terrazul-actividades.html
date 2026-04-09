@@ -896,7 +896,7 @@ function clientes() { return [...new Set(EMPRESAS.map(e=>e[0]))].sort(); }
 // ======================================================
 // GOOGLE SHEETS API
 // ======================================================
-const API_URL = 'https://script.google.com/macros/s/AKfycbzxKRxbL3V_4svr0th4U92IrZK5TrCJXCA02ZHEx36XksGT7dLDobQ4DUn2PLEA2Zpu/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbw00DjHyTbAmI1l2eJ1b2E4qeZsy5cjUs49-K51XaVH6aLn95Fhub_khhbNCAG75oFm/exec';
 
 async function sheetRead(sheet) {
   const r = await fetch(`${API_URL}?action=read&sheet=${sheet}`);
