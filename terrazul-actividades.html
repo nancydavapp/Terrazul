@@ -1795,15 +1795,15 @@ function agregarComentario() {
 
 function initDesdeEmail() {
   const sc = document.getElementById('er-cliente');
-  const clientes = [...new Set(EMPRESAS.map(e => e.cliente))];
-  sc.innerHTML = '<option value="">— Seleccionar —</option>' + clientes.map(c => `<option>${c}</option>`).join('');
+  const clientes = [...new Set(EMPRESAS.map(e => e.cliente).filter(Boolean))];
+  sc.innerHTML = '<option value="">— Seleccionar —</option>' + clientes.map(c => `<option value="${c}">${c}</option>`).join('');
   sc.onchange = () => {
     const se = document.getElementById('er-empresa');
     const emp = EMPRESAS.filter(e => e.cliente === sc.value);
-    se.innerHTML = '<option value="">— Seleccionar —</option>' + emp.map(e => `<option>${e.nombre}</option>`).join('');
+    se.innerHTML = '<option value="">— Seleccionar —</option>' + emp.map(e => `<option value="${e.nombre}">${e.nombre}</option>`).join('');
   };
   const sr = document.getElementById('er-resp');
-  sr.innerHTML = '<option value="">— Seleccionar —</option>' + RESPONSABLES.map(r => `<option>${r.nombre}</option>`).join('');
+  sr.innerHTML = '<option value="">— Seleccionar —</option>' + RESPONSABLES.map(r => `<option value="${r.nombre}">${r.nombre}</option>`).join('');
 }
 
 async function analizarEmailIA() {
