@@ -1815,8 +1815,6 @@ async function analizarEmailIA() {
   const texto = document.getElementById('email-texto').value.trim();
   if (!texto) { toast('Pegá el contenido del email primero','w'); return; }
 
-  recargarSelectsEmail();
-
   document.getElementById('email-loading').style.display = 'block';
   document.getElementById('email-resultado').style.display = 'none';
 
