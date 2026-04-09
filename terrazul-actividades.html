@@ -714,8 +714,6 @@ let ACTIVIDADES = [
    sol:'2026-01-12',resp:'Valentín',etapa:'Presentación SII',obj:'2026-01-29',ubic:'En revisión SII',obs:''},
 ];
 
-const GEMINI_KEY = 'AIzaSyDuzzQENIupREv3ChI_-Ybt2arQao89BMY';
-
 const TIEMPOS = {
   'Actualización de capital':13,'Actualización de domicilio':13,'Actualización de socios':13,
   'Representante legal':13,'Obtención de RUT/Clave':13,'Inicio de actividades':13,
@@ -1820,34 +1818,20 @@ async function analizarEmailIA() {
   const empresasLista = EMPRESAS.map(e => `${e[1]} ${e[2]}`).join(', ');
   const hoyStr = new Date().toISOString().split('T')[0];
 
-  const prompt = `Eres un asistente que extrae información de emails para crear actividades de gestión tributaria/SII en Chile.
-
-Analiza este email y extrae los siguientes datos en formato JSON:
-- tarea: título corto de la actividad (máx 60 caracteres)
-- desc: descripción más detallada
-- obs: observaciones o notas relevantes
-- sol: fecha de solicitud en formato YYYY-MM-DD (si no hay, usa hoy: ${hoyStr})
-- obj: fecha objetivo/plazo en formato YYYY-MM-DD (si no hay, deja vacío "")
-- resp: responsable más probable entre: ${responsablesLista} (si no hay pista, deja vacío "")
-- empresa: empresa mencionada entre: ${empresasLista} (busca por RUT o nombre exacto, si no coincide deja vacío "")
-
-Email:
-${texto}
-
-Responde SOLO con el JSON válido, sin explicaciones ni backticks.`;
-
   try {
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + GEMINI_KEY, {
+    const response = await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      body: JSON.stringify({
+        action: 'analizar-email',
+        texto,
+        empresas: empresasLista,
+        responsables: responsablesLista
+      })
     });
-    const data = await response.json();
-    const text = data.candidates[0].content.parts[0].text;
-    const clean = text.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(clean);
+    const parsed = await response.json();
 
-    // Poblar formulario
+    if (parsed.error) throw new Error(parsed.error);
+
     document.getElementById('er-tarea').value = parsed.tarea || '';
     document.getElementById('er-desc').value  = parsed.desc  || '';
     document.getElementById('er-obs').value   = parsed.obs   || '';
