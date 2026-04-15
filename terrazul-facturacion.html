@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Terrazul – Facturación v20260415021632</title>
 <meta name="theme-color" content="#0c0c59">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Facturación">
+<link rel="manifest" href="manifest-facturacion.json">
+<link rel="apple-touch-icon" href="icon192.png">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
@@ -1984,6 +1990,12 @@ function abrirSII(){
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded',()=>{
   checkAuth();
+  // Registrar Service Worker para PWA
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('./sw-facturacion.js')
+      .then(()=>console.log('SW registrado'))
+      .catch(e=>console.log('SW error:',e));
+  }
 
   renderDashboard();
 });

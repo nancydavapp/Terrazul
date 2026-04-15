@@ -1,0 +1,24 @@
+{
+  "name": "Terrazul Facturación",
+  "short_name": "Facturación",
+  "description": "Control de facturación mensual Terrazul",
+  "start_url": "./terrazul-facturacion.html",
+  "display": "standalone",
+  "background_color": "#0c0c59",
+  "theme_color": "#0c0c59",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
