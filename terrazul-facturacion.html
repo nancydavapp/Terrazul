@@ -1809,6 +1809,7 @@ function guardarCliente(){
     toast('✅ Cliente agregado','s');
   }
   saveDB();
+  syncClientes();
   cerrarModal('modal-cliente');
   renderClientes();
 }
