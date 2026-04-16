@@ -672,7 +672,7 @@ const CONFIG_BASE = {
 
 // ===== API =====
 // Script 1: Datos (cuenta personal) — Lee/escribe Sheet y Drive
-const API_DATOS   = 'https://script.google.com/macros/s/AKfycbwAUiEOBrYyusXQOGNJwDaOtUgb0rKlDYD3DMqRDr09bFSFBwQiK3yOc1e0q2ZcXfbR-g/exec';
+const API_DATOS   = 'https://script.google.com/macros/s/AKfycbypKjPMspdwEJ15tzxV6qYb092lwRDsObDqvccnvou2YNafOoTkL9UX0F-6mo81W-0DAw/exec';
 // Script 2: Correos (naguilar@trzl.cl) — Crea borradores Gmail
 const API_CORREOS = 'https://script.google.com/macros/s/AKfycbyavHUmbpa2mkoGWGVjH7xQYviPY6c3Khgyn2WUC1uxtcJDL3t-itEXanWwNGBChA/exec';
 
@@ -2367,14 +2367,11 @@ async function subirPDF(filaIdx, inputEl){
       return;
     }
   }
-  const nombreArchivo = f.folio
-    ? `FE-${f.folio} Terrazul - ${f.razon} ${padMes(m.mes)}-${m.anio}.pdf`
-    : `Factura - ${f.razon} ${padMes(m.mes)}-${m.anio}.pdf`;
 
-  toast('⏳ Subiendo PDF a Drive...','w');
+  toast('⏳ Subiendo y analizando factura con IA...','w');
 
   try {
-    // Leer el archivo como base64
+    // Leer como base64
     const base64 = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result.split(',')[1]);
@@ -2382,34 +2379,68 @@ async function subirPDF(filaIdx, inputEl){
       reader.readAsDataURL(file);
     });
 
-    // Enviar al script
-    const resp = await apiPost({
-      action:   'upload-pdf',
-      filename: nombreArchivo,
-      mimeType: 'application/pdf',
-      data:     base64
+    // PASO 1: Subir a Drive
+    const nombreArchivo = f.folio
+      ? `FE-${f.folio} Terrazul - ${f.razon} ${padMes(m.mes)}-${m.anio}.pdf`
+      : `Factura - ${f.razon} ${padMes(m.mes)}-${m.anio}.pdf`;
+
+    const respDrive = await apiPost({
+      action: 'upload-pdf', filename: nombreArchivo,
+      mimeType: 'application/pdf', data: base64
     });
 
-    if(resp.ok && resp.url){
-      m.filas[filaIdx].pdfUrl = resp.url;
-      saveDB();
-      await saveFacturacionSheets();
-      renderFacturacion();
-      toast(`✅ PDF subido correctamente`,'s');
-    } else {
-      const errMsg = resp.error||'Sin respuesta';
-      if(errMsg.includes('DriveApp') || errMsg.includes('getFolderById')){
-        toast('⚠️ El script necesita autorización de Drive. Ve a Apps Script → Ejecutar testConexion → Autoriza permisos.','e');
-      } else {
-        toast('Error al subir PDF: ' + errMsg,'e');
-      }
+    if(!respDrive.ok){
+      const errMsg = respDrive.error||'Sin respuesta';
+      toast('Error al subir PDF: ' + errMsg, 'e');
+      inputEl.value = '';
+      return;
     }
+    m.filas[filaIdx].pdfUrl = respDrive.url;
+
+    // PASO 2: Analizar con Gemini
+    toast('🤖 Analizando con Gemini...','w');
+    const respGemini = await apiPost({
+      action:     'analizar-factura',
+      base64:     base64,
+      montoApp:   f.totalClp||0,
+      ufApp:      m.uf,
+      mesApp:     m.label,
+      rutCliente: f.rut||''
+    });
+
+    if(respGemini.ok){
+      // Autocompletar folio
+      if(respGemini.folio){
+        const folioActual = f.folio||'';
+        if(!folioActual){
+          m.filas[filaIdx].folio = respGemini.folio;
+        } else if(folioActual !== respGemini.folio){
+          if(confirm(`La factura tiene folio ${respGemini.folio} pero la app tiene ${folioActual}.\n¿Actualizar al folio de la factura?`)){
+            m.filas[filaIdx].folio = respGemini.folio;
+          }
+        }
+      }
+
+      // Mostrar resultado
+      if(respGemini.todoOk){
+        toast('✅ PDF subido · Folio · Monto · UF · Mes · RUT — Todo OK','s');
+      } else {
+        const errores = respGemini.validaciones.map(v => `⚠️ ${v.campo}: ${v.msg}`).join('\n');
+        alert('PDF subido.\n\nSe encontraron diferencias:\n\n' + errores);
+        toast('⚠️ PDF subido con diferencias — revisa las alertas','w');
+      }
+    } else {
+      toast('✅ PDF subido · ⚠️ Gemini no disponible: ' + (respGemini.error||''),'w');
+    }
+
+    saveDB();
+    await saveFacturacionSheets();
+    renderFacturacion();
+
   } catch(err) {
     console.error('subirPDF:', err);
-    toast('Error al subir PDF','e');
+    toast('Error: ' + err.message,'e');
   }
-
-  // Limpiar el input
   inputEl.value = '';
 }
 
