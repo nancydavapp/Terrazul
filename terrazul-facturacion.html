@@ -1117,6 +1117,7 @@ function agregarFilaExtra(){
 function guardarMes(){
   recalcTotales();
   saveDB();
+  saveFacturacionSheets();
   toast('✅ Mes guardado correctamente','s');
   renderFacturacion();
   renderDashboard();
@@ -1175,6 +1176,7 @@ function confirmarNuevoMes(){
   DB.meses.push({ label, mes, anio, uf, filas, correos:[] });
   mesSelIdx = DB.meses.length-1;
   saveDB();
+  saveFacturacionSheets();
   cerrarModal('modal-mes');
   renderFacturacion();
   toast(`✅ Mes ${label} creado con ${filas.length} clientes`,'s');
@@ -1713,6 +1715,7 @@ function eliminarMes(idx){
   if(mesSelIdx === idx) mesSelIdx = DB.meses.length - 1;
   else if(mesSelIdx > idx) mesSelIdx--;
   saveDB();
+  saveFacturacionSheets();
   renderHistorial();
   renderDashboard();
   toast(`Mes ${m.label} eliminado`,'w');
@@ -1772,7 +1775,7 @@ function editarCliente(i){ abrirModalCliente(i); }
 
 function toggleActivoCliente(i){
   DB.clientes[i].activo = DB.clientes[i].activo===false ? true : false;
-  saveDB(); renderClientes();
+  saveDB(); syncClientes(); renderClientes();
   toast(`Cliente ${DB.clientes[i].activo?'activado':'desactivado'}`,'s');
 }
 
@@ -1837,7 +1840,7 @@ function guardarConfig(){
     hora: document.getElementById('cfg-hora').value||'08:30',
     claveFirma: document.getElementById('cfg-clave').value,
   };
-  saveDB(); toast('✅ Configuración guardada','s');
+  saveDB(); syncConfig(); toast('✅ Configuración guardada','s');
 }
 
 // ===== BACKUP =====
@@ -1944,6 +1947,7 @@ function cambiarCredenciales(){
     if(np.length<4){ toast('Mínimo 4 caracteres','e'); return; }
     hashStr(np).then(h=>{
       localStorage.setItem('trzl_pwd_hash',h);
+      syncAcceso(localStorage.getItem('trzl_user')||DEFAULT_USER, h);
       toast('✅ Credenciales actualizadas','s');
       document.getElementById('cfg-pwd-new').value='';
       document.getElementById('cfg-pwd-confirm').value='';
@@ -2128,7 +2132,7 @@ function guardarSociedad(){
   }
 
   actualizarContadorGrupo(grupo);
-  saveDB();
+  saveDB(); syncSociedades();
   cerrarModal('modal-sociedad');
   renderSociedades();
   document.getElementById('soc-grupo-sel').value = grupo;
@@ -2145,6 +2149,57 @@ function abrirSII(){
   a.click();
   // Copiar al portapapeles como respaldo
   navigator.clipboard.writeText(url).catch(()=>{});
+}
+
+
+// ===== SINCRONIZACIÓN CON SHEETS =====
+async function syncClientes(){
+  try {
+    const rows = [['clave','rut','razon','empresas','tarifa','grupo','activo']];
+    DB.clientes.forEach(c => rows.push([c.clave,c.rut||'',c.razon||'',c.empresas||0,c.tarifa||0,c.grupo?'TRUE':'FALSE',c.activo!==false?'TRUE':'FALSE']));
+    await apiPost({ action:'write', sheet:'Clientes', data:rows });
+
+    // Sincronizar contactos también
+    const rowsK = [['clave','contacto','email1','email2','cc']];
+    DB.clientes.forEach(c => rowsK.push([c.clave,c.contacto||'',c.email1||'',c.email2||'',c.cc||'']));
+    await apiPost({ action:'write', sheet:'Contactos', data:rowsK });
+  } catch(e){ console.warn('syncClientes:', e); }
+}
+
+async function syncSociedades(){
+  try {
+    const rows = [['grupo','cod','rut','razon','tarifa','activo']];
+    Object.values(DB.sociedades||{}).flat().forEach(s =>
+      rows.push([s.grupo,s.cod||'',s.rut||'',s.razon||'',s.tarifa||2,s.activo!==false?'TRUE':'FALSE'])
+    );
+    await apiPost({ action:'write', sheet:'Sociedades', data:rows });
+  } catch(e){ console.warn('syncSociedades:', e); }
+}
+
+async function syncConfig(){
+  try {
+    const cfg = DB.config;
+    const rows = [
+      ['clave','valor'],
+      ['banco',       cfg.banco||''],
+      ['rut',         cfg.rut||''],
+      ['razon',       cfg.razon||''],
+      ['tipo',        cfg.tipo||''],
+      ['cuenta',      cfg.cuenta||''],
+      ['firmante',    cfg.firmante||''],
+      ['dia_envio',   cfg.dia||5],
+      ['hora_envio',  cfg.hora||'08:30'],
+      ['clave_firma', cfg.claveFirma||''],
+      ['correo_envio','naguilar@trzl.cl'],
+    ];
+    await apiPost({ action:'write', sheet:'Configuracion', data:rows });
+  } catch(e){ console.warn('syncConfig:', e); }
+}
+
+async function syncAcceso(usuario, hash){
+  try {
+    await apiPost({ action:'write', sheet:'Acceso', data:[['usuario','hash'],[usuario,hash]] });
+  } catch(e){ console.warn('syncAcceso:', e); }
 }
 
 // ===== INIT =====
