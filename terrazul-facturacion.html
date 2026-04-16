@@ -228,7 +228,6 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
       <button class="btn btn-secondary btn-sm" onclick="exportarBackup()">💾 Backup</button>
       <label class="btn btn-secondary btn-sm" style="cursor:pointer">📂 Importar<input type="file" accept=".json" style="display:none" onchange="importarBackup(event)"></label>
     </div>
-    </div>
   </div>
 
   <!-- DASHBOARD -->
@@ -607,12 +606,25 @@ async function checkLogin(){
   }
 }
 
+function cerrarSesion(){
+  sessionStorage.removeItem('trzl_auth');
+  sessionStorage.removeItem('trzl_user_active');
+  document.getElementById('login-user').value='';
+  document.getElementById('login-pwd').value='';
+  document.getElementById('login-error').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('topbar-user').textContent='';
+  document.getElementById('login-user').focus();
+}
+
 function checkAuth(){
   if(!sessionStorage.getItem('trzl_auth')){
     document.getElementById('login-screen').style.display='flex';
-
+    document.getElementById('login-user').focus();
   } else {
     document.getElementById('login-screen').style.display='none';
+    const u = sessionStorage.getItem('trzl_user_active')||'';
+    document.getElementById('topbar-user').textContent = u;
   }
 }
 
