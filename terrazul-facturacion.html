@@ -651,11 +651,14 @@ const CONFIG_BASE = {
 };
 
 // ===== API =====
-const API_URL = 'https://script.google.com/macros/s/AKfycbwzHVO3Q5JnDOrLTVB5tS_7EnJkdMp2HNueTC7EWEWtOzHvC7pP2pbhGVQCK2TpUH0w/exec';
+// Script 1: Datos (cuenta personal) — Lee/escribe Sheet y Drive
+const API_DATOS   = 'https://script.google.com/macros/s/AKfycbw3-ShQPUQbBDVM92XRFFx6CL1xu7rLtXO_dnQN4z7fzyi6uPhY5uyQSvwk3rvf66YLnQ/exec';
+// Script 2: Correos (naguilar@trzl.cl) — Crea borradores Gmail
+const API_CORREOS = 'https://script.google.com/macros/s/AKfycbyavHUmbpa2mkoGWGVjH7xQYviPY6c3Khgyn2WUC1uxtcJDL3t-itEXanWwNGBChA/exec';
 
 async function apiGet(sheet){
   try {
-    const r = await fetch(`${API_URL}?sheet=${sheet}`);
+    const r = await fetch(`${API_DATOS}?sheet=${sheet}`);
     const text = await r.text();
     return JSON.parse(text);
   } catch(e) {
@@ -666,7 +669,7 @@ async function apiGet(sheet){
 
 async function apiPost(payload){
   try {
-    const r = await fetch(API_URL, {
+    const r = await fetch(API_DATOS, {
       method: 'POST',
       body: JSON.stringify(payload)
     });
@@ -674,6 +677,20 @@ async function apiPost(payload){
     try { return JSON.parse(text); } catch(e){ return { ok: true }; }
   } catch(e) {
     console.error('apiPost error:', e);
+    return { error: e.toString() };
+  }
+}
+
+async function apiCorreos(payload){
+  try {
+    const r = await fetch(API_CORREOS, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    const text = await r.text();
+    try { return JSON.parse(text); } catch(e){ return { ok: true }; }
+  } catch(e) {
+    console.error('apiCorreos error:', e);
     return { error: e.toString() };
   }
 }
@@ -697,14 +714,14 @@ function saveDB(){
 // Guardar historial de facturación en Sheets
 async function saveFacturacionSheets(){
   try {
-    const rows = [['label','mes','anio','uf','clave','rut','razon','empresas','tarifa','totalUf','totalClp','folio','desc','grupo','correoEnviado']];
+    const rows = [['label','mes','anio','uf','clave','rut','razon','empresas','tarifa','totalUf','totalClp','folio','desc','grupo','correoEnviado','pdfUrl']];
     DB.meses.forEach(m => {
       m.filas.forEach(f => {
         rows.push([
           m.label, m.mes, m.anio, m.uf,
           f.clave||'', f.rut||'', f.razon||'', f.empresas||0,
           f.tarifa||0, f.totalUf||0, f.totalClp||0,
-          f.folio||'', f.desc||'', f.grupo?'SI':'NO',
+          f.folio||'', f.desc||'', f.grupo?'SI':'NO', f.pdfUrl||'',
           f.correoEnviado?'SI':'NO'
         ]);
       });
@@ -800,7 +817,7 @@ async function cargarDesdeSheets(){
             clave: r[4], rut: r[5], razon: r[6], empresas: Number(r[7]),
             tarifa: Number(r[8]), totalUf: Number(r[9]), totalClp: Number(r[10]),
             folio: r[11]||'', desc: r[12]||'',
-            grupo: r[13]==='SI', correoEnviado: r[14]==='SI'
+            grupo: r[13]==='SI', correoEnviado: r[14]==='SI', pdfUrl: r[15]||''
           });
         }
       });
@@ -1063,7 +1080,18 @@ function renderMesPanel(){
       <td style="font-weight:600">${fmtNum(f.totalUf)} UF</td>
       <td style="font-weight:600">${fmtClp(f.totalClp||0)}</td>
       <td><input type="text" class="folio-input ${f.folio?'filled':''}" value="${f.folio||''}" placeholder="—" onchange="updateFila(${i},'folio',this.value)" style="width:80px"></td>
-      <td style="font-size:11px;color:var(--gray-600);min-width:120px">${f.desc?`<span style="font-size:10px;color:var(--amber)">${f.desc}</span>`:''}</td>
+      <td>
+        ${f.pdfUrl
+          ? `<a href="${f.pdfUrl}" target="_blank" class="btn btn-secondary btn-sm" style="font-size:10px;padding:3px 7px">📄 Ver</a>
+             <label class="btn btn-secondary btn-sm" style="font-size:10px;padding:3px 7px;cursor:pointer">🔄
+               <input type="file" accept=".pdf" style="display:none" onchange="subirPDF(${i},this)">
+             </label>`
+          : `<label class="btn btn-secondary btn-sm" style="font-size:10px;padding:3px 7px;cursor:pointer">📎 PDF
+               <input type="file" accept=".pdf" style="display:none" onchange="subirPDF(${i},this)">
+             </label>`
+        }
+      </td>
+      <td><input type="text" class="folio-input" style="width:140px;font-size:11px" value="${f.desc||''}" placeholder="Descripción..." onchange="updateFila(${i},'desc',this.value)"></td>
       <td class="td-actions">
         ${f.extra?`<button class="ib del" onclick="eliminarFila(${i})" title="Eliminar">🗑</button>`:''}
       </td>
@@ -1076,6 +1104,7 @@ function renderMesPanel(){
 function updateFila(i, campo, val){
   const m = DB.meses[mesSelIdx];
   if(campo==='folio') m.filas[i].folio = val.trim();
+  if(campo==='desc') m.filas[i].desc = val.trim();
   if(campo==='empresas'){ m.filas[i].empresas = parseFloat(val)||1; }
   if(campo==='tarifa'){ m.filas[i].tarifa = parseFloat(val)||0; }
   if(campo==='empresas'||campo==='tarifa'){
@@ -2211,6 +2240,55 @@ async function syncAcceso(usuario, hash){
   try {
     await apiPost({ action:'write', sheet:'Acceso', data:[['usuario','hash'],[usuario,hash]] });
   } catch(e){ console.warn('syncAcceso:', e); }
+}
+
+// ===== SUBIR PDF A DRIVE =====
+async function subirPDF(filaIdx, inputEl){
+  const file = inputEl.files[0];
+  if(!file) return;
+  if(file.type !== 'application/pdf'){ toast('Solo se aceptan archivos PDF','e'); return; }
+
+  const m = DB.meses[mesSelIdx];
+  const f = m.filas[filaIdx];
+  const nombreArchivo = f.folio
+    ? `FE-${f.folio} Terrazul - ${f.razon} ${padMes(m.mes)}-${m.anio}.pdf`
+    : `Factura - ${f.razon} ${padMes(m.mes)}-${m.anio}.pdf`;
+
+  toast('⏳ Subiendo PDF a Drive...','w');
+
+  try {
+    // Leer el archivo como base64
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    // Enviar al script
+    const resp = await apiPost({
+      action:   'upload-pdf',
+      filename: nombreArchivo,
+      mimeType: 'application/pdf',
+      data:     base64
+    });
+
+    if(resp.ok && resp.url){
+      m.filas[filaIdx].pdfUrl = resp.url;
+      saveDB();
+      await saveFacturacionSheets();
+      renderFacturacion();
+      toast(`✅ PDF subido correctamente`,'s');
+    } else {
+      toast('Error al subir PDF: ' + (resp.error||'Sin respuesta'),'e');
+    }
+  } catch(err) {
+    console.error('subirPDF:', err);
+    toast('Error al subir PDF','e');
+  }
+
+  // Limpiar el input
+  inputEl.value = '';
 }
 
 // ===== INIT =====
