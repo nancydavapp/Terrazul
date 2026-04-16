@@ -1078,7 +1078,7 @@ function renderMesPanel(){
 
   const tbody = document.getElementById('fact-tbody');
   tbody.innerHTML = m.filas.map((f,i)=>`
-    <tr>
+    <tr style="${f.pdfUrl ? 'background:rgba(46,125,50,0.04)' : ''}">
       <td style="color:var(--gray-400);font-size:11px">${f.num||i+1}</td>
       <td><span class="badge badge-navy">${f.clave}</span></td>
       <td style="font-size:12px;min-width:160px">${f.razon}</td>
@@ -1096,7 +1096,7 @@ function renderMesPanel(){
                  <input type="file" accept=".pdf" style="display:none" onchange="subirPDF(${i},this)">
                </label>
              </div>`
-          : `<label title="Subir factura PDF" style="display:inline-flex;align-items:center;gap:3px;background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:3px 7px;font-size:10px;cursor:pointer;color:var(--gray-500)">📎 Subir
+          : `<label title="Subir factura PDF" style="display:inline-flex;align-items:center;gap:3px;background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:3px 7px;font-size:10px;cursor:pointer;color:#f57f17;font-weight:600">📎 Subir
                <input type="file" accept=".pdf" style="display:none" onchange="subirPDF(${i},this)">
              </label>`
         }
@@ -2260,6 +2260,14 @@ async function subirPDF(filaIdx, inputEl){
 
   const m = DB.meses[mesSelIdx];
   const f = m.filas[filaIdx];
+
+  // Confirmar si ya hay un PDF subido
+  if(f.pdfUrl){
+    if(!confirm(`¿Reemplazar la factura ya subida para ${f.razon}?\nEsto no elimina el archivo anterior en Drive.`)){
+      inputEl.value = '';
+      return;
+    }
+  }
   const nombreArchivo = f.folio
     ? `FE-${f.folio} Terrazul - ${f.razon} ${padMes(m.mes)}-${m.anio}.pdf`
     : `Factura - ${f.razon} ${padMes(m.mes)}-${m.anio}.pdf`;
