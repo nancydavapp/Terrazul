@@ -651,20 +651,31 @@ const CONFIG_BASE = {
 };
 
 // ===== API =====
-const API_URL = 'https://script.google.com/macros/s/AKfycby8b6TFsS4UB0e9BOZM8IbbHSKGE5m7EhvNgNzjaHiZEVOlgJMKEH4ZnSOz5dznHmQd/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwzHVO3Q5JnDOrLTVB5tS_7EnJkdMp2HNueTC7EWEWtOzHvC7pP2pbhGVQCK2TpUH0w/exec';
 
 async function apiGet(sheet){
-  const r = await fetch(`${API_URL}?sheet=${sheet}`);
-  return await r.json();
+  try {
+    const r = await fetch(`${API_URL}?sheet=${sheet}`);
+    const text = await r.text();
+    return JSON.parse(text);
+  } catch(e) {
+    console.error('apiGet error:', e);
+    return { error: e.toString() };
+  }
 }
 
 async function apiPost(payload){
-  const r = await fetch(API_URL, {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify(payload)
-  });
-  return await r.json();
+  try {
+    const r = await fetch(API_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    const text = await r.text();
+    try { return JSON.parse(text); } catch(e){ return { ok: true }; }
+  } catch(e) {
+    console.error('apiPost error:', e);
+    return { error: e.toString() };
+  }
 }
 
 // ===== STORAGE =====
