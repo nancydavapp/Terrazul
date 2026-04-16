@@ -650,16 +650,164 @@ const CONFIG_BASE = {
   dia:5, hora:'08:30'
 };
 
+// ===== API =====
+const API_URL = 'https://script.google.com/macros/s/AKfycby8b6TFsS4UB0e9BOZM8IbbHSKGE5m7EhvNgNzjaHiZEVOlgJMKEH4ZnSOz5dznHmQd/exec';
+
+async function apiGet(sheet){
+  const r = await fetch(`${API_URL}?sheet=${sheet}`);
+  return await r.json();
+}
+
+async function apiPost(payload){
+  const r = await fetch(API_URL, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+  return await r.json();
+}
+
 // ===== STORAGE =====
+// Cache local (para trabajo sin latencia)
 function load(k){ try{ const d=localStorage.getItem(k); return d?JSON.parse(d):null; }catch(e){return null;} }
 function save(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
 
-let DB = load('trzl_fact_db') || { clientes: CLIENTES_BASE, meses: [], config: CONFIG_BASE };
+let DB = load('trzl_fact_db') || { clientes: CLIENTES_BASE, sociedades: {}, meses: [], config: CONFIG_BASE };
 if(!DB.clientes) DB.clientes = CLIENTES_BASE;
 if(!DB.meses) DB.meses = [];
 if(!DB.config) DB.config = CONFIG_BASE;
+if(!DB.sociedades) DB.sociedades = {};
 
-function saveDB(){ save('trzl_fact_db', DB); }
+// Guardar en localStorage Y en Sheets
+function saveDB(){
+  save('trzl_fact_db', DB);
+}
+
+// Guardar historial de facturación en Sheets
+async function saveFacturacionSheets(){
+  try {
+    const rows = [['label','mes','anio','uf','clave','rut','razon','empresas','tarifa','totalUf','totalClp','folio','desc','grupo','correoEnviado']];
+    DB.meses.forEach(m => {
+      m.filas.forEach(f => {
+        rows.push([
+          m.label, m.mes, m.anio, m.uf,
+          f.clave||'', f.rut||'', f.razon||'', f.empresas||0,
+          f.tarifa||0, f.totalUf||0, f.totalClp||0,
+          f.folio||'', f.desc||'', f.grupo?'SI':'NO',
+          f.correoEnviado?'SI':'NO'
+        ]);
+      });
+    });
+    await apiPost({ action:'write', sheet:'Facturacion', data: rows });
+  } catch(e) { console.warn('saveFacturacionSheets:', e); }
+}
+
+// Cargar todos los datos desde Sheets al iniciar
+async function cargarDesdeSheets(){
+  try {
+    document.getElementById('page-title').textContent = '⏳ Cargando datos...';
+    const data = await apiGet('all');
+
+    // Parsear Clientes
+    if(data.Clientes && data.Clientes.length > 1){
+      const [hdr, ...rows] = data.Clientes;
+      DB.clientes = rows.map(r => ({
+        clave:    r[0], rut:    r[1], razon:  r[2],
+        empresas: Number(r[3]), tarifa: Number(r[4]),
+        grupo:    r[5]==='TRUE'||r[5]===true,
+        activo:   r[6]==='TRUE'||r[6]===true
+      }));
+    }
+
+    // Parsear Contactos
+    if(data.Contactos && data.Contactos.length > 1){
+      const [hdr, ...rows] = data.Contactos;
+      rows.forEach(r => {
+        const clave = r[0];
+        const cli = DB.clientes.find(c => c.clave === clave);
+        if(cli){
+          cli.contacto = r[1]||'';
+          cli.email1   = r[2]||'';
+          cli.email2   = r[3]||'';
+          cli.cc       = r[4]||'';
+        }
+      });
+    }
+
+    // Parsear Sociedades
+    if(data.Sociedades && data.Sociedades.length > 1){
+      const [hdr, ...rows] = data.Sociedades;
+      DB.sociedades = {};
+      rows.forEach(r => {
+        const grupo = r[0];
+        if(!DB.sociedades[grupo]) DB.sociedades[grupo] = [];
+        DB.sociedades[grupo].push({
+          grupo: r[0], cod: r[1], rut: r[2], razon: r[3],
+          tarifa: Number(r[4]),
+          activo: r[5]==='TRUE'||r[5]===true
+        });
+      });
+    }
+
+    // Parsear Configuracion
+    if(data.Configuracion && data.Configuracion.length > 1){
+      const [hdr, ...rows] = data.Configuracion;
+      rows.forEach(r => {
+        const k = r[0], v = r[1];
+        if(k==='banco')       DB.config.banco      = v;
+        if(k==='rut')         DB.config.rut        = v;
+        if(k==='razon')       DB.config.razon      = v;
+        if(k==='tipo')        DB.config.tipo       = v;
+        if(k==='cuenta')      DB.config.cuenta     = v;
+        if(k==='firmante')    DB.config.firmante   = v;
+        if(k==='dia_envio')   DB.config.dia        = Number(v);
+        if(k==='hora_envio')  DB.config.hora       = v;
+        if(k==='clave_firma') DB.config.claveFirma = v;
+      });
+    }
+
+    // Parsear Acceso
+    if(data.Acceso && data.Acceso.length > 1){
+      const [hdr, ...rows] = data.Acceso;
+      if(rows[0]){
+        localStorage.setItem('trzl_user', rows[0][0]);
+        localStorage.setItem('trzl_pwd_hash', rows[0][1]);
+      }
+    }
+
+    // Parsear historial Facturacion (reconstruir meses)
+    if(data.Facturacion && data.Facturacion.length > 1){
+      const [hdr, ...rows] = data.Facturacion;
+      const mesesMap = {};
+      rows.forEach(r => {
+        const label = r[0];
+        if(!mesesMap[label]){
+          mesesMap[label] = { label:r[0], mes:Number(r[1]), anio:Number(r[2]), uf:Number(r[3]), filas:[] };
+        }
+        if(r[4]){ // tiene clave de cliente
+          mesesMap[label].filas.push({
+            clave: r[4], rut: r[5], razon: r[6], empresas: Number(r[7]),
+            tarifa: Number(r[8]), totalUf: Number(r[9]), totalClp: Number(r[10]),
+            folio: r[11]||'', desc: r[12]||'',
+            grupo: r[13]==='SI', correoEnviado: r[14]==='SI'
+          });
+        }
+      });
+      if(Object.keys(mesesMap).length > 0){
+        DB.meses = Object.values(mesesMap);
+      }
+    }
+
+    saveDB();
+    document.getElementById('page-title').textContent = 'Panel de Control';
+    toast('✅ Datos cargados desde Sheets','s');
+
+  } catch(e) {
+    console.error('Error cargarDesdeSheets:', e);
+    toast('⚠️ Sin conexión — usando datos locales','w');
+    document.getElementById('page-title').textContent = 'Panel de Control';
+  }
+}
 
 // ===== NAVEGACIÓN =====
 let paginaActual = 'dashboard';
@@ -2000,7 +2148,7 @@ function abrirSII(){
 }
 
 // ===== INIT =====
-document.addEventListener('DOMContentLoaded',()=>{
+document.addEventListener('DOMContentLoaded', async ()=>{
   checkAuth();
   // Registrar Service Worker para PWA
   if('serviceWorker' in navigator){
@@ -2008,7 +2156,10 @@ document.addEventListener('DOMContentLoaded',()=>{
       .then(()=>console.log('SW registrado'))
       .catch(e=>console.log('SW error:',e));
   }
-
+  // Cargar datos desde Sheets (si hay sesión activa)
+  if(sessionStorage.getItem('trzl_auth')){
+    await cargarDesdeSheets();
+  }
   renderDashboard();
 });
 </script>
