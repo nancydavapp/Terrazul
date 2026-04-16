@@ -526,12 +526,12 @@ input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-
       </div>
       <div class="eprev" id="prev-body"></div>
       <div style="margin-top:12px;background:var(--amber-light);border-radius:var(--rs);padding:10px 12px;font-size:12px;color:var(--amber)">
-        ⚡ El envío se realizará a través de Gmail API. Programar = borrador listo para el día 5 a las 8:30 AM.
+        ⚡ El borrador se creará en Gmail de naguilar@trzl.cl — listo para revisar y enviar cuando quieras.
       </div>
     </div>
     <div class="mf">
       <button class="btn btn-secondary" onclick="cerrarModal('modal-correo')">Cerrar</button>
-      <button class="btn btn-gold" onclick="programarCorreo()">📅 Programar Envío</button>
+      <button class="btn btn-gold" id="btn-crear-borrador" onclick="crearBorradorGmail()">✉️ Crear Borrador</button>
     </div>
   </div>
 </div>
@@ -1397,6 +1397,8 @@ ${cfg.firmante}`,
   };
 }
 
+let _correoActual = {};
+
 function verCorreoGrupo(idx){
   const m = DB.meses[idx];
   const grupoFilas = m.filas.filter(f=>f.grupo);
@@ -1404,6 +1406,19 @@ function verCorreoGrupo(idx){
   const correo = generarCuerpoCorreo(m, null, true, grupoFilas);
   const asunto = generarAsunto(m, null, true);
   const adjuntos = grupoFilas.map(f=>f.folio?`FE-${f.folio} Terrazul - ${f.razon} ${padMes(m.mes)}-${m.anio}.pdf`:'[Sin folio]').join('\n') + '\n+ Excel detalle.xlsx';
+
+  // Guardar contexto para crear borrador
+  _correoActual = {
+    para: cli.email1||'',
+    cc: cli.cc||'',
+    asunto,
+    cuerpoHTML: correo.html,
+    adjuntosTexto: adjuntos,
+    mesIdx: idx,
+    esGrupo: true,
+    grupoFilas
+  };
+
   document.getElementById('modal-correo-title').textContent = '📧 Correo Grupo — Holdco/Tralka/Antu';
   document.getElementById('prev-asunto').textContent = asunto;
   document.getElementById('prev-para').textContent = `Jimena <${cli.email1}>`;
@@ -1420,24 +1435,84 @@ function verCorreoIndiv(idx, fi){
   const correo = generarCuerpoCorreo(m, f, false, null);
   const asunto = generarAsunto(m, f, false);
   const adjunto = f.folio?`FE-${f.folio} Terrazul - ${f.razon} ${padMes(m.mes)}-${m.anio}.pdf`:'[Sin folio]';
+  const para = [cli.email1, cli.email2].filter(Boolean).join(',');
+
+  // Guardar contexto para crear borrador
+  _correoActual = {
+    para,
+    cc: cli.cc||'',
+    asunto,
+    cuerpoHTML: correo.html,
+    adjuntosTexto: adjunto,
+    mesIdx: idx,
+    filaIdx: fi,
+    esGrupo: false,
+    pdfUrl: f.pdfUrl||''
+  };
+
   document.getElementById('modal-correo-title').textContent = `📧 Correo — ${f.razon}`;
   document.getElementById('prev-asunto').textContent = asunto;
-  document.getElementById('prev-para').textContent = `${cli.contacto||''} <${[cli.email1,cli.email2].filter(Boolean).join(', ')}>`;
+  document.getElementById('prev-para').textContent = `${cli.contacto||''} <${para}>`;
   document.getElementById('prev-cc').textContent = cli.cc||'—';
   document.getElementById('prev-adjuntos').textContent = adjunto;
   document.getElementById('prev-body').innerHTML = correo.html;
   abrirModal('modal-correo');
 }
 
-function programarCorreo(){
-  const cfg = DB.config;
-  toast(`📅 Correo programado para el día ${cfg.dia} a las ${cfg.hora} ✓`,'s');
-  cerrarModal('modal-correo');
+async function crearBorradorGmail(){
+  if(!_correoActual.para){ toast('Sin destinatario configurado','e'); return; }
+
+  const btn = document.getElementById('btn-crear-borrador');
+  btn.disabled = true;
+  btn.textContent = '⏳ Creando...';
+
+  try {
+    const payload = {
+      action:  'crear-borrador',
+      para:    _correoActual.para,
+      cc:      _correoActual.cc||'',
+      asunto:  _correoActual.asunto,
+      cuerpo:  _correoActual.cuerpoHTML,
+      adjuntos: []
+    };
+
+    const resp = await apiCorreos(payload);
+
+    if(resp.ok){
+      toast('✅ Borrador creado en Gmail de naguilar@trzl.cl','s');
+
+      // Marcar correo como enviado en la fila correspondiente
+      const m = DB.meses[_correoActual.mesIdx];
+      if(_correoActual.esGrupo){
+        m.filas.filter(f=>f.grupo).forEach(f=>f.correoEnviado=true);
+      } else {
+        m.filas[_correoActual.filaIdx].correoEnviado = true;
+      }
+      saveDB();
+      await saveFacturacionSheets();
+      cerrarModal('modal-correo');
+      renderFacturacion();
+      renderDashboard();
+    } else {
+      toast('Error: ' + (resp.error||'Sin respuesta del script'),'e');
+    }
+  } catch(e){
+    toast('Error al crear borrador: ' + e.message,'e');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✉️ Crear Borrador';
+  }
 }
 
 function programarTodos(){
-  const cfg = DB.config;
-  toast(`📅 Todos los correos programados para el día ${cfg.dia} a las ${cfg.hora}`,'s');
+  // Crear borradores para todos los correos pendientes
+  const m = DB.meses[mesSelIdx];
+  if(!m){ toast('No hay mes activo','w'); return; }
+  const pendientes = m.filas.filter(f=>!f.correoEnviado);
+  if(!pendientes.length){ toast('No hay correos pendientes','w'); return; }
+  toast(`⏳ Creando ${pendientes.length} borrador(es)...`,'w');
+  // Por ahora redirige a correos para crear uno por uno
+  navTo('correos');
 }
 
 function irACorreos(){
