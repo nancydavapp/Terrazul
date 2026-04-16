@@ -592,19 +592,37 @@ async function hashStr(str){
 }
 
 async function checkLogin(){
-  const pwd = document.getElementById('login-pwd').value;
-  if(!pwd){ document.getElementById('login-error').style.display='block'; document.getElementById('login-error').textContent='Ingresa la contraseña'; return; }
-  const hash = await hashStr(pwd);
+  const user = document.getElementById('login-user').value.trim().toLowerCase();
+  const pwd  = document.getElementById('login-pwd').value;
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+
+  if(!user){ errEl.style.display='block'; errEl.textContent='Ingresa el usuario'; return; }
+  if(!pwd){  errEl.style.display='block'; errEl.textContent='Ingresa la contraseña'; return; }
+
+  const storedUser = (localStorage.getItem('trzl_user') || DEFAULT_USER).toLowerCase();
   const storedHash = localStorage.getItem('trzl_pwd_hash') || DEFAULT_PWD_HASH;
-  if(hash === storedHash){
-    document.getElementById('login-screen').style.display='none';
-    sessionStorage.setItem('trzl_auth','1');
-  } else {
-    document.getElementById('login-error').style.display='block';
-    document.getElementById('login-error').textContent='Contraseña incorrecta';
+  const hash = await hashStr(pwd);
+
+  if(user !== storedUser){
+    errEl.style.display='block'; errEl.textContent='Usuario incorrecto';
+    document.getElementById('login-user').select();
+    return;
+  }
+  if(hash !== storedHash){
+    errEl.style.display='block'; errEl.textContent='Contraseña incorrecta';
     document.getElementById('login-pwd').value='';
     document.getElementById('login-pwd').focus();
+    return;
   }
+
+  // Login correcto
+  document.getElementById('login-screen').style.display='none';
+  sessionStorage.setItem('trzl_auth','1');
+  sessionStorage.setItem('trzl_user_active', user);
+  document.getElementById('topbar-user').textContent = user;
+  await cargarDesdeSheets();
+  renderDashboard();
 }
 
 function cerrarSesion(){
@@ -702,6 +720,12 @@ function load(k){ try{ const d=localStorage.getItem(k); return d?JSON.parse(d):n
 function save(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
 
 let DB = load('trzl_fact_db') || { clientes: CLIENTES_BASE, sociedades: {}, meses: [], config: CONFIG_BASE };
+// Limpiar pdfUrl con valor 'undefined' (string) que puede quedar de parseos anteriores
+if(DB.meses) DB.meses.forEach(m => {
+  if(m.filas) m.filas.forEach(f => {
+    if(f.pdfUrl === 'undefined' || f.pdfUrl === 'null') f.pdfUrl = '';
+  });
+});
 if(!DB.clientes) DB.clientes = CLIENTES_BASE;
 if(!DB.meses) DB.meses = [];
 if(!DB.config) DB.config = CONFIG_BASE;
@@ -722,8 +746,7 @@ async function saveFacturacionSheets(){
           m.label, m.mes, m.anio, m.uf,
           f.clave||'', f.rut||'', f.razon||'', f.empresas||0,
           f.tarifa||0, f.totalUf||0, f.totalClp||0,
-          f.folio||'', f.desc||'', f.grupo?'SI':'NO', f.pdfUrl||'',
-          f.correoEnviado?'SI':'NO'
+          f.folio||'', f.desc||'', f.grupo?'SI':'NO', f.correoEnviado?'SI':'NO', f.pdfUrl||''
         ]);
       });
     });
@@ -825,7 +848,7 @@ async function cargarDesdeSheets(){
             clave: r[4], rut: r[5], razon: r[6], empresas: Number(r[7]),
             tarifa: Number(r[8]), totalUf: Number(r[9]), totalClp: Number(r[10]),
             folio: r[11]||'', desc: r[12]||'',
-            grupo: r[13]==='SI', correoEnviado: r[14]==='SI', pdfUrl: r[15]||''
+            grupo: r[13]==='SI', correoEnviado: r[14]==='SI', pdfUrl: (r.length>15 && r[15] && r[15]!=='undefined' ? r[15] : '')
           });
         }
       });
@@ -1089,7 +1112,7 @@ function renderMesPanel(){
       <td style="font-weight:600">${fmtClp(f.totalClp||0)}</td>
       <td><input type="text" class="folio-input ${f.folio?'filled':''}" value="${f.folio||''}" placeholder="—" onchange="updateFila(${i},'folio',this.value)" style="width:80px"></td>
       <td>
-        ${f.pdfUrl
+        ${(f.pdfUrl && f.pdfUrl !== 'undefined' && f.pdfUrl.startsWith('http'))
           ? `<div style="display:flex;gap:3px;align-items:center">
                <a href="${f.pdfUrl}" target="_blank" title="Ver factura" style="display:inline-flex;align-items:center;gap:3px;background:#e8f5e9;border:1px solid #81c784;border-radius:6px;padding:3px 7px;font-size:10px;font-weight:600;color:#2e7d32;text-decoration:none">✅ Ver</a>
                <label title="Reemplazar PDF" style="display:inline-flex;align-items:center;background:#fff3e0;border:1px solid #ffb74d;border-radius:6px;padding:3px 6px;font-size:10px;cursor:pointer;color:#e65100">🔄
