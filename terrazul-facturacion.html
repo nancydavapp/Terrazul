@@ -653,7 +653,7 @@ const CONFIG_BASE = {
 
 // ===== API =====
 // Script 1: Datos (cuenta personal) — Lee/escribe Sheet y Drive
-const API_DATOS   = 'https://script.google.com/macros/s/AKfycbyX26dZmre6vlPeY7nRgfohibo7RQwGo94dcoDAI03mnyLp8J9JE59jiM06Fz3wfumSdw/exec';
+const API_DATOS   = 'https://script.google.com/macros/s/AKfycbwAUiEOBrYyusXQOGNJwDaOtUgb0rKlDYD3DMqRDr09bFSFBwQiK3yOc1e0q2ZcXfbR-g/exec';
 // Script 2: Correos (naguilar@trzl.cl) — Crea borradores Gmail
 const API_CORREOS = 'https://script.google.com/macros/s/AKfycbyavHUmbpa2mkoGWGVjH7xQYviPY6c3Khgyn2WUC1uxtcJDL3t-itEXanWwNGBChA/exec';
 
@@ -811,7 +811,14 @@ async function cargarDesdeSheets(){
       rows.forEach(r => {
         const label = r[0];
         if(!mesesMap[label]){
-          mesesMap[label] = { label:r[0], mes:Number(r[1]), anio:Number(r[2]), uf:Number(r[3]), filas:[] };
+          // r[1]=mes, r[2]=anio pueden ser números o strings
+          const mesNum  = Number(r[1]);
+          const anioNum = Number(r[2]);
+          // Reconstruir label limpio en caso de que venga como fecha
+          const labelLimpio = (mesNum && anioNum)
+            ? MESES_NOMBRES[mesNum-1] + ' ' + anioNum
+            : String(r[0]);
+          mesesMap[label] = { label:labelLimpio, mes:mesNum, anio:anioNum, uf:Number(r[3]), filas:[] };
         }
         if(r[4]){ // tiene clave de cliente
           mesesMap[label].filas.push({
@@ -2283,7 +2290,12 @@ async function subirPDF(filaIdx, inputEl){
       renderFacturacion();
       toast(`✅ PDF subido correctamente`,'s');
     } else {
-      toast('Error al subir PDF: ' + (resp.error||'Sin respuesta'),'e');
+      const errMsg = resp.error||'Sin respuesta';
+      if(errMsg.includes('DriveApp') || errMsg.includes('getFolderById')){
+        toast('⚠️ El script necesita autorización de Drive. Ve a Apps Script → Ejecutar testConexion → Autoriza permisos.','e');
+      } else {
+        toast('Error al subir PDF: ' + errMsg,'e');
+      }
     }
   } catch(err) {
     console.error('subirPDF:', err);
