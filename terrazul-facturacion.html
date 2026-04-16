@@ -2360,8 +2360,9 @@ async function subirPDF(filaIdx, inputEl){
   const m = DB.meses[mesSelIdx];
   const f = m.filas[filaIdx];
 
-  // Confirmar si ya hay un PDF subido
-  if(f.pdfUrl){
+  // Confirmar si ya hay un PDF subido (solo si la URL es válida)
+  const tienePDF = f.pdfUrl && f.pdfUrl.startsWith('http');
+  if(tienePDF){
     if(!confirm(`¿Reemplazar la factura ya subida para ${f.razon}?\nEsto no elimina el archivo anterior en Drive.`)){
       inputEl.value = '';
       return;
@@ -2430,7 +2431,8 @@ async function subirPDF(filaIdx, inputEl){
         toast('⚠️ PDF subido con diferencias — revisa las alertas','w');
       }
     } else {
-      toast('✅ PDF subido · ⚠️ Gemini no disponible: ' + (respGemini.error||''),'w');
+      console.error('Gemini error:', respGemini.error);
+      toast('✅ PDF subido · ⚠️ Gemini: ' + (respGemini.error||'Error desconocido').substring(0,80),'w');
     }
 
     saveDB();
@@ -2438,8 +2440,8 @@ async function subirPDF(filaIdx, inputEl){
     renderFacturacion();
 
   } catch(err) {
-    console.error('subirPDF:', err);
-    toast('Error: ' + err.message,'e');
+    console.error('subirPDF error completo:', err);
+    toast('Error: ' + (err.message||err.toString()),'e');
   }
   inputEl.value = '';
 }
