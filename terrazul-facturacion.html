@@ -1154,7 +1154,7 @@ function validarUF(){
   document.getElementById("nm-uf-confirm").style.display = ok ? "block" : "none";
 }
 
-function confirmarNuevoMes(){
+async function confirmarNuevoMes(){
   const mes = parseInt(document.getElementById('nm-mes').value);
   const anio = parseInt(document.getElementById('nm-anio').value);
   const ufStr = document.getElementById('nm-uf').value.replace(/\./g,'').replace(',','.');
@@ -1937,7 +1937,7 @@ function formatUFSII(uf){
   return Number(uf).toFixed(2).replace(',','.');
 }
 
-function cambiarCredenciales(){
+async function cambiarCredenciales(){
   const nuevoUser = document.getElementById('cfg-usuario').value.trim().toLowerCase();
   const np = document.getElementById('cfg-pwd-new').value;
   const nc = document.getElementById('cfg-pwd-confirm').value;
@@ -1946,13 +1946,12 @@ function cambiarCredenciales(){
     if(!np){ toast('Ingresa la nueva contraseña','e'); return; }
     if(np!==nc){ toast('Las contraseñas no coinciden','e'); return; }
     if(np.length<4){ toast('Mínimo 4 caracteres','e'); return; }
-    hashStr(np).then(h=>{
-      localStorage.setItem('trzl_pwd_hash',h);
-      await syncAcceso(localStorage.getItem('trzl_user')||DEFAULT_USER, h);
-      toast('✅ Credenciales actualizadas','s');
-      document.getElementById('cfg-pwd-new').value='';
-      document.getElementById('cfg-pwd-confirm').value='';
-    });
+    const h = await hashStr(np);
+    localStorage.setItem('trzl_pwd_hash', h);
+    await syncAcceso(localStorage.getItem('trzl_user')||DEFAULT_USER, h);
+    toast('✅ Credenciales actualizadas','s');
+    document.getElementById('cfg-pwd-new').value='';
+    document.getElementById('cfg-pwd-confirm').value='';
   } else if(nuevoUser){
     toast('✅ Usuario actualizado','s');
   }
