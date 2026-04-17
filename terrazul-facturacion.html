@@ -672,7 +672,7 @@ const CONFIG_BASE = {
 
 // ===== API =====
 // Script 1: Datos (cuenta personal) — Lee/escribe Sheet y Drive
-const API_DATOS   = 'https://script.google.com/macros/s/AKfycby5SsIkG5mkEquRXexUJgpwkSnBd887LJqNRRAY0rHPZZq3pnNtmfjnlzyM1FKDsdhTdA/exec';
+const API_DATOS   = 'https://script.google.com/macros/s/AKfycbyxNTHK2p9nwh7a4aRQpe8D6oZiuvzn0-JHEkU6HzNRuF908WXOTlzHcBoaeGhb6oMi9g/exec';
 // Script 2: Correos (naguilar@trzl.cl) — Crea borradores Gmail
 const API_CORREOS = 'https://script.google.com/macros/s/AKfycbwWWjHQp_Zmd6krgFFRhifGr52kyTS6u5DoOXwODd2BI4WnaecxDNXTjVk-BsRt-ZoY/exec';
 
@@ -2478,25 +2478,22 @@ async function subirPDF(filaIdx, inputEl){
       reader.readAsDataURL(file);
     });
 
-    // PASO 1: Subir a Drive
-    const nombreArchivo = f.folio
-      ? `FE-${f.folio} Terrazul - ${f.razon} ${padMes(m.mes)}-${m.anio}.pdf`
-      : `Factura - ${f.razon} ${padMes(m.mes)}-${m.anio}.pdf`;
-
+    // PASO 1: Subir a Drive con nombre temporal
+    toast('⏳ Subiendo a Drive...','w');
+    const nombreTemp = `temp_${f.razon}_${padMes(m.mes)}-${m.anio}.pdf`;
     const respDrive = await apiPost({
-      action: 'upload-pdf', filename: nombreArchivo,
+      action: 'upload-pdf', filename: nombreTemp,
       mimeType: 'application/pdf', data: base64
     });
 
     if(!respDrive.ok){
-      const errMsg = respDrive.error||'Sin respuesta';
-      toast('Error al subir PDF: ' + errMsg, 'e');
+      toast('Error al subir PDF: ' + (respDrive.error||'Sin respuesta'), 'e');
       inputEl.value = '';
       return;
     }
     m.filas[filaIdx].pdfUrl = respDrive.url;
 
-    // PASO 2: Analizar con Gemini usando el fileId de Drive
+    // PASO 2: Analizar con Gemini para extraer folio y validar
     toast('🤖 Analizando con Gemini...','w');
     const respGemini = await apiPost({
       action:     'analizar-factura',
@@ -2507,30 +2504,42 @@ async function subirPDF(filaIdx, inputEl){
       rutCliente: f.rut||''
     });
 
-    if(respGemini.ok){
-      // Autocompletar folio
-      if(respGemini.folio){
-        const folioActual = f.folio||'';
-        if(!folioActual){
+    if(respGemini.ok && respGemini.folio){
+      // Actualizar folio en la fila
+      const folioActual = f.folio||'';
+      if(!folioActual){
+        m.filas[filaIdx].folio = respGemini.folio;
+      } else if(folioActual !== respGemini.folio){
+        if(confirm(`La factura tiene folio ${respGemini.folio} pero la app tiene ${folioActual}.\n¿Actualizar?`)){
           m.filas[filaIdx].folio = respGemini.folio;
-        } else if(folioActual !== respGemini.folio){
-          if(confirm(`La factura tiene folio ${respGemini.folio} pero la app tiene ${folioActual}.\n¿Actualizar al folio de la factura?`)){
-            m.filas[filaIdx].folio = respGemini.folio;
-          }
         }
       }
 
-      // Mostrar resultado
+      // PASO 3: Renombrar archivo en Drive con el folio correcto
+      const folioFinal = m.filas[filaIdx].folio;
+      const nombreFinal = `FE-${folioFinal} Terrazul - ${f.razon} ${padMes(m.mes)}-${m.anio}.pdf`;
+      const respRename = await apiPost({
+        action:  'rename-file',
+        fileId:  respDrive.id,
+        nombre:  nombreFinal
+      });
+      if(respRename.ok) toast('✅ Archivo nombrado: ' + nombreFinal,'s');
+
+      // Mostrar validaciones
       if(respGemini.todoOk){
-        toast('✅ PDF subido · Folio · Monto · UF · Mes · RUT — Todo OK','s');
+        toast('✅ PDF · Folio · Monto · UF · Mes · RUT — Todo OK','s');
       } else {
         const errores = respGemini.validaciones.map(v => `⚠️ ${v.campo}: ${v.msg}`).join('\n');
         alert('PDF subido.\n\nSe encontraron diferencias:\n\n' + errores);
-        toast('⚠️ PDF subido con diferencias — revisa las alertas','w');
+        toast('⚠️ PDF subido con diferencias','w');
       }
-    } else {
+    } else if(!respGemini.ok){
       console.error('Gemini error:', respGemini.error);
-      toast('✅ PDF subido · ⚠️ Gemini: ' + (respGemini.error||'Error desconocido').substring(0,80),'w');
+      // Renombrar con lo que tenemos aunque Gemini falle
+      const folioFinal = f.folio||'sin-folio';
+      const nombreFinal = `FE-${folioFinal} Terrazul - ${f.razon} ${padMes(m.mes)}-${m.anio}.pdf`;
+      await apiPost({ action:'rename-file', fileId:respDrive.id, nombre:nombreFinal });
+      toast('✅ PDF subido · ⚠️ Gemini no disponible','w');
     }
 
     saveDB();
