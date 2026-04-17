@@ -674,7 +674,7 @@ const CONFIG_BASE = {
 // Script 1: Datos (cuenta personal) — Lee/escribe Sheet y Drive
 const API_DATOS   = 'https://script.google.com/macros/s/AKfycby5SsIkG5mkEquRXexUJgpwkSnBd887LJqNRRAY0rHPZZq3pnNtmfjnlzyM1FKDsdhTdA/exec';
 // Script 2: Correos (naguilar@trzl.cl) — Crea borradores Gmail
-const API_CORREOS = 'https://script.google.com/macros/s/AKfycbyavHUmbpa2mkoGWGVjH7xQYviPY6c3Khgyn2WUC1uxtcJDL3t-itEXanWwNGBChA/exec';
+const API_CORREOS = 'https://script.google.com/macros/s/AKfycbwWWjHQp_Zmd6krgFFRhifGr52kyTS6u5DoOXwODd2BI4WnaecxDNXTjVk-BsRt-ZoY/exec';
 
 async function apiGet(sheet){
   try {
@@ -1476,13 +1476,32 @@ async function crearBorradorGmail(){
   btn.textContent = '⏳ Creando...';
 
   try {
+    // Recopilar fileIds de PDFs subidos
+    const m = DB.meses[_correoActual.mesIdx];
+    const archivos = [];
+    if(_correoActual.esGrupo){
+      m.filas.filter(f=>f.grupo).forEach(f=>{
+        if(f.pdfUrl && f.pdfUrl.startsWith('http')){
+          // Extraer fileId desde la URL de Drive
+          const match = f.pdfUrl.match(/[-\w]{25,}/);
+          if(match) archivos.push({ fileId: match[0], nombre: f.folio ? `FE-${f.folio} Terrazul - ${f.razon}.pdf` : `${f.razon}.pdf` });
+        }
+      });
+    } else {
+      const f = m.filas[_correoActual.filaIdx];
+      if(f && f.pdfUrl && f.pdfUrl.startsWith('http')){
+        const match = f.pdfUrl.match(/[-\w]{25,}/);
+        if(match) archivos.push({ fileId: match[0], nombre: f.folio ? `FE-${f.folio} Terrazul - ${f.razon}.pdf` : `${f.razon}.pdf` });
+      }
+    }
+
     const payload = {
-      action:  'crear-borrador',
-      para:    _correoActual.para,
-      cc:      _correoActual.cc||'',
-      asunto:  _correoActual.asunto,
-      cuerpo:  _correoActual.cuerpoHTML,
-      adjuntos: []
+      action:   'crear-borrador',
+      para:     _correoActual.para,
+      cc:       _correoActual.cc||'',
+      asunto:   _correoActual.asunto,
+      cuerpo:   _correoActual.cuerpoHTML,
+      archivos  // array de {fileId, nombre}
     };
 
     const resp = await apiCorreos(payload);
@@ -1513,15 +1532,85 @@ async function crearBorradorGmail(){
   }
 }
 
-function programarTodos(){
-  // Crear borradores para todos los correos pendientes
+async function programarTodos(){
   const m = DB.meses[mesSelIdx];
   if(!m){ toast('No hay mes activo','w'); return; }
+
+  // Filas pendientes (sin correo enviado)
   const pendientes = m.filas.filter(f=>!f.correoEnviado);
-  if(!pendientes.length){ toast('No hay correos pendientes','w'); return; }
-  toast(`⏳ Creando ${pendientes.length} borrador(es)...`,'w');
-  // Por ahora redirige a correos para crear uno por uno
-  navTo('correos');
+  if(!pendientes.length){ toast('Todos los correos ya fueron enviados ✅','s'); return; }
+
+  if(!confirm(`¿Crear ${pendientes.length} borrador(es) en Gmail para todos los clientes pendientes?`)) return;
+
+  const btn = document.querySelector('[onclick="programarTodos()"]');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Creando borradores...'; }
+
+  let creados = 0;
+  let errores = 0;
+
+  // Agrupar: primero el grupo Holdco/Tralka/Antu si hay pendientes
+  const grupoFilas = pendientes.filter(f=>f.grupo);
+  const individuales = pendientes.filter(f=>!f.grupo);
+
+  // Crear borrador del grupo si hay pendientes
+  if(grupoFilas.length > 0){
+    try {
+      const cli = DB.clientes.find(c=>c.clave==='Holdco')||{};
+      const correo = generarCuerpoCorreo(m, null, true, grupoFilas);
+      const asunto = generarAsunto(m, null, true);
+      const archivos = [];
+      grupoFilas.forEach(f=>{
+        if(f.pdfUrl && f.pdfUrl.startsWith('http')){
+          const match = f.pdfUrl.match(/[-\w]{25,}/);
+          if(match) archivos.push({ fileId: match[0], nombre: f.folio ? `FE-${f.folio} Terrazul - ${f.razon}.pdf` : `${f.razon}.pdf` });
+        }
+      });
+      const resp = await apiCorreos({
+        action: 'crear-borrador',
+        para: cli.email1||'',
+        cc: cli.cc||'',
+        asunto, cuerpo: correo.html, archivos
+      });
+      if(resp.ok){
+        grupoFilas.forEach(f=>f.correoEnviado=true);
+        creados++;
+      } else { errores++; }
+    } catch(e){ errores++; console.error('Error grupo:', e); }
+  }
+
+  // Crear borradores individuales
+  for(const f of individuales){
+    try {
+      const cli = DB.clientes.find(c=>c.clave===f.clave)||{};
+      const correo = generarCuerpoCorreo(m, f, false, null);
+      const asunto = generarAsunto(m, f, false);
+      const archivos = [];
+      if(f.pdfUrl && f.pdfUrl.startsWith('http')){
+        const match = f.pdfUrl.match(/[-\w]{25,}/);
+        if(match) archivos.push({ fileId: match[0], nombre: f.folio ? `FE-${f.folio} Terrazul - ${f.razon}.pdf` : `${f.razon}.pdf` });
+      }
+      const para = [cli.email1, cli.email2].filter(Boolean).join(',');
+      const resp = await apiCorreos({
+        action: 'crear-borrador',
+        para, cc: cli.cc||'',
+        asunto, cuerpo: correo.html, archivos
+      });
+      if(resp.ok){ f.correoEnviado=true; creados++; }
+      else { errores++; }
+    } catch(e){ errores++; console.error('Error individual:', f.razon, e); }
+  }
+
+  saveDB();
+  await saveFacturacionSheets();
+  renderDashboard();
+
+  if(btn){ btn.disabled=false; btn.textContent='📅 Programar todos (día 5, 8:30 AM)'; }
+
+  if(errores===0){
+    toast(`✅ ${creados} borrador(es) creados en Gmail`,'s');
+  } else {
+    toast(`✅ ${creados} creados · ⚠️ ${errores} con error`,'w');
+  }
 }
 
 function irACorreos(){
