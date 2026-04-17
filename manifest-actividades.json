@@ -1,21 +1,21 @@
 {
-  "name": "Terrazul Facturaci\u00f3n",
-  "short_name": "Facturaci\u00f3n",
-  "description": "Control de facturaci\u00f3n mensual Terrazul Asesor\u00edas",
-  "start_url": "./terrazul-facturacion.html",
+  "name": "Terrazul Actividades",
+  "short_name": "Actividades",
+  "description": "Control de actividades Terrazul Asesor\u00edas",
+  "start_url": "./terrazul-actividades.html",
   "display": "standalone",
   "background_color": "#0c0c59",
   "theme_color": "#0c0c59",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "icon-facturacion-192.png",
+      "src": "icon-actividades-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-facturacion-512.png",
+      "src": "icon-actividades-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
