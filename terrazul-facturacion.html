@@ -672,7 +672,7 @@ const CONFIG_BASE = {
 
 // ===== API =====
 // Script 1: Datos (cuenta personal) — Lee/escribe Sheet y Drive
-const API_DATOS   = 'https://script.google.com/macros/s/AKfycbyxNTHK2p9nwh7a4aRQpe8D6oZiuvzn0-JHEkU6HzNRuF908WXOTlzHcBoaeGhb6oMi9g/exec';
+const API_DATOS   = 'https://script.google.com/macros/s/AKfycby8nueOrxUPRnKuKKxtrCUbuLzrSYEOL9VVIuahoj-d8RmH5KgfqZd2opdZlSqvomeqKg/exec';
 // Script 2: Correos (naguilar@trzl.cl) — Crea borradores Gmail
 const API_CORREOS = 'https://script.google.com/macros/s/AKfycbwWWjHQp_Zmd6krgFFRhifGr52kyTS6u5DoOXwODd2BI4WnaecxDNXTjVk-BsRt-ZoY/exec';
 
@@ -2518,11 +2518,7 @@ async function subirPDF(filaIdx, inputEl){
       // PASO 3: Renombrar archivo en Drive con el folio correcto
       const folioFinal = m.filas[filaIdx].folio;
       const nombreFinal = `FE-${folioFinal} Terrazul - ${f.razon} ${padMes(m.mes)}-${m.anio}.pdf`;
-      const respRename = await apiPost({
-        action:  'rename-file',
-        fileId:  respDrive.id,
-        nombre:  nombreFinal
-      });
+      const respRename = await apiGet(`rename&fileId=${respDrive.id}&nombre=${encodeURIComponent(nombreFinal)}`);
       if(respRename.ok) toast('✅ Archivo nombrado: ' + nombreFinal,'s');
 
       // Mostrar validaciones
@@ -2538,7 +2534,7 @@ async function subirPDF(filaIdx, inputEl){
       // Renombrar con lo que tenemos aunque Gemini falle
       const folioFinal = f.folio||'sin-folio';
       const nombreFinal = `FE-${folioFinal} Terrazul - ${f.razon} ${padMes(m.mes)}-${m.anio}.pdf`;
-      await apiPost({ action:'rename-file', fileId:respDrive.id, nombre:nombreFinal });
+      await apiGet(`rename&fileId=${respDrive.id}&nombre=${encodeURIComponent(nombreFinal)}`);
       toast('✅ PDF subido · ⚠️ Gemini no disponible','w');
     }
 
