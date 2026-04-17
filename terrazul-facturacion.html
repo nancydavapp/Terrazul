@@ -672,7 +672,7 @@ const CONFIG_BASE = {
 
 // ===== API =====
 // Script 1: Datos (cuenta personal) — Lee/escribe Sheet y Drive
-const API_DATOS   = 'https://script.google.com/macros/s/AKfycbzgspIsqOWMfAAfj5N24eVWNPL5YLj6DnIMbetFuRiF4IdJ3BFDF97o3lUQ724XcHU42w/exec';
+const API_DATOS   = 'https://script.google.com/macros/s/AKfycbz8EmKkC-8umHW-Eo0xiQspd-tmxpxGA6Uf2FcXV9-PyUGZxrU9kJQ-r7-x-ABYgd4TtQ/exec';
 // Script 2: Correos (naguilar@trzl.cl) — Crea borradores Gmail
 const API_CORREOS = 'https://script.google.com/macros/s/AKfycbyavHUmbpa2mkoGWGVjH7xQYviPY6c3Khgyn2WUC1uxtcJDL3t-itEXanWwNGBChA/exec';
 
@@ -721,12 +721,20 @@ function load(k){ try{ const d=localStorage.getItem(k); return d?JSON.parse(d):n
 function save(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
 
 let DB = load('trzl_fact_db') || { clientes: CLIENTES_BASE, sociedades: {}, meses: [], config: CONFIG_BASE };
-// Limpiar pdfUrl con valor 'undefined' (string) que puede quedar de parseos anteriores
-if(DB.meses) DB.meses.forEach(m => {
-  if(m.filas) m.filas.forEach(f => {
-    if(f.pdfUrl === 'undefined' || f.pdfUrl === 'null') f.pdfUrl = '';
+// Limpiar valores inválidos en meses
+function limpiarDB(){
+  if(!DB.meses) return;
+  DB.meses.forEach(m => {
+    if(!m.filas) return;
+    m.filas.forEach(f => {
+      // Limpiar pdfUrl inválido
+      if(!f.pdfUrl || f.pdfUrl === 'undefined' || f.pdfUrl === 'null' || !f.pdfUrl.startsWith('http')){
+        f.pdfUrl = '';
+      }
+    });
   });
-});
+}
+limpiarDB();
 if(!DB.clientes) DB.clientes = CLIENTES_BASE;
 if(!DB.meses) DB.meses = [];
 if(!DB.config) DB.config = CONFIG_BASE;
@@ -858,6 +866,7 @@ async function cargarDesdeSheets(){
       }
     }
 
+    limpiarDB();
     saveDB();
     document.getElementById('page-title').textContent = 'Panel de Control';
     toast('✅ Datos cargados desde Sheets','s');
@@ -2398,11 +2407,11 @@ async function subirPDF(filaIdx, inputEl){
     }
     m.filas[filaIdx].pdfUrl = respDrive.url;
 
-    // PASO 2: Analizar con Gemini
+    // PASO 2: Analizar con Gemini usando el fileId de Drive
     toast('🤖 Analizando con Gemini...','w');
     const respGemini = await apiPost({
       action:     'analizar-factura',
-      base64:     base64,
+      fileId:     respDrive.id,
       montoApp:   f.totalClp||0,
       ufApp:      m.uf,
       mesApp:     m.label,
