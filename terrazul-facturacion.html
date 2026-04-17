@@ -2478,11 +2478,15 @@ async function subirPDF(filaIdx, inputEl){
       reader.readAsDataURL(file);
     });
 
-    // PASO 1: Subir a Drive con nombre temporal
+    // PASO 1: Subir a Drive
+    // Si ya tiene folio usar nombre correcto, si no nombre temporal
     toast('⏳ Subiendo a Drive...','w');
-    const nombreTemp = `temp_${f.razon}_${padMes(m.mes)}-${m.anio}.pdf`;
+    const folioActualSubida = (f.folio||'').trim();
+    const nombreSubida = folioActualSubida
+      ? `FE-${folioActualSubida} Terrazul - ${f.razon} ${padMes(m.mes)}-${m.anio}.pdf`
+      : `temp_${f.razon}_${padMes(m.mes)}-${m.anio}.pdf`;
     const respDrive = await apiPost({
-      action: 'upload-pdf', filename: nombreTemp,
+      action: 'upload-pdf', filename: nombreSubida,
       mimeType: 'application/pdf', data: base64
     });
 
@@ -2504,22 +2508,28 @@ async function subirPDF(filaIdx, inputEl){
       rutCliente: f.rut||''
     });
 
+    console.log('Gemini respuesta:', JSON.stringify(respGemini));
     if(respGemini.ok && respGemini.folio){
       // Actualizar folio en la fila
-      const folioActual = f.folio||'';
-      if(!folioActual){
+      const folioExistente = (f.folio||'').trim();
+      if(!folioExistente){
         m.filas[filaIdx].folio = respGemini.folio;
-      } else if(folioActual !== respGemini.folio){
-        if(confirm(`La factura tiene folio ${respGemini.folio} pero la app tiene ${folioActual}.\n¿Actualizar?`)){
+      } else if(folioExistente !== String(respGemini.folio)){
+        if(confirm(`La factura tiene folio ${respGemini.folio} pero la app tiene ${folioExistente}.\n¿Actualizar?`)){
           m.filas[filaIdx].folio = respGemini.folio;
         }
       }
 
-      // PASO 3: Renombrar archivo en Drive con el folio correcto
+      // PASO 3: Renombrar en Drive con folio correcto (solo si subió con nombre temp)
       const folioFinal = m.filas[filaIdx].folio;
       const nombreFinal = `FE-${folioFinal} Terrazul - ${f.razon} ${padMes(m.mes)}-${m.anio}.pdf`;
-      const respRename = await apiGet(`rename&fileId=${respDrive.id}&nombre=${encodeURIComponent(nombreFinal)}`);
-      if(respRename.ok) toast('✅ Archivo nombrado: ' + nombreFinal,'s');
+      if(!folioActualSubida){
+        // Solo renombrar si subió con nombre temporal
+        console.log('Renombrando archivo:', respDrive.id, '→', nombreFinal);
+        const respRename = await apiGet(`rename&fileId=${encodeURIComponent(respDrive.id)}&nombre=${encodeURIComponent(nombreFinal)}`);
+        console.log('Rename respuesta:', JSON.stringify(respRename));
+        if(respRename.ok) toast('✅ Archivo: ' + nombreFinal,'s');
+      }
 
       // Mostrar validaciones
       if(respGemini.todoOk){
