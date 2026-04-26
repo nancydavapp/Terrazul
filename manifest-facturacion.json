@@ -2,7 +2,7 @@
   "name": "Terrazul Facturaci\u00f3n",
   "short_name": "Facturaci\u00f3n",
   "description": "Control de facturaci\u00f3n mensual Terrazul Asesor\u00edas",
-  "start_url": "./terrazul-facturacion.html",
+  "start_url": "./facturacion.html",
   "display": "standalone",
   "background_color": "#0c0c59",
   "theme_color": "#0c0c59",
