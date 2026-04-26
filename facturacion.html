@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Terrazul – Facturación v20260415021632</title>
+<title>Facturación</title>
 <meta name="theme-color" content="#0c0c59">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -593,37 +593,74 @@ async function hashStr(str){
 }
 
 async function checkLogin(){
-  const user = document.getElementById('login-user').value.trim().toLowerCase();
-  const pwd  = document.getElementById('login-pwd').value;
-  const errEl = document.getElementById('login-error');
+  const user   = document.getElementById('login-user').value.trim().toLowerCase();
+  const pwd    = document.getElementById('login-pwd').value;
+  const errEl  = document.getElementById('login-error');
+  const btn    = document.querySelector('.login-card .btn-primary');
   errEl.style.display = 'none';
 
   if(!user){ errEl.style.display='block'; errEl.textContent='Ingresa el usuario'; return; }
   if(!pwd){  errEl.style.display='block'; errEl.textContent='Ingresa la contraseña'; return; }
 
-  const storedUser = (localStorage.getItem('trzl_user') || DEFAULT_USER).toLowerCase();
-  const storedHash = localStorage.getItem('trzl_pwd_hash') || DEFAULT_PWD_HASH;
-  const hash = await hashStr(pwd);
+  // Deshabilitar botón mientras valida
+  if(btn){ btn.disabled=true; btn.textContent='Validando...'; }
 
-  if(user !== storedUser){
-    errEl.style.display='block'; errEl.textContent='Usuario incorrecto';
-    document.getElementById('login-user').select();
-    return;
-  }
-  if(hash !== storedHash){
-    errEl.style.display='block'; errEl.textContent='Contraseña incorrecta';
-    document.getElementById('login-pwd').value='';
-    document.getElementById('login-pwd').focus();
-    return;
-  }
+  try {
+    const hash = await hashStr(pwd);
 
-  // Login correcto
-  document.getElementById('login-screen').style.display='none';
-  sessionStorage.setItem('trzl_auth','1');
-  sessionStorage.setItem('trzl_user_active', user);
-  document.getElementById('topbar-user').textContent = user;
-  await cargarDesdeSheets();
-  renderDashboard();
+    // SIEMPRE validar contra el Sheet (fuente de verdad única)
+    let accesoOk = false;
+    try {
+      const data = await apiGet('Acceso');
+      if(data && data.length > 1){
+        const [hdr, ...rows] = data;
+        const fila = rows.find(r => String(r[0]).toLowerCase() === user);
+        if(fila && fila[1] === hash){
+          accesoOk = true;
+          // Actualizar localStorage con los datos del Sheet
+          localStorage.setItem('trzl_user', fila[0]);
+          localStorage.setItem('trzl_pwd_hash', fila[1]);
+        } else if(!fila){
+          errEl.style.display='block'; errEl.textContent='Usuario incorrecto';
+          return;
+        } else {
+          errEl.style.display='block'; errEl.textContent='Contraseña incorrecta';
+          document.getElementById('login-pwd').value='';
+          document.getElementById('login-pwd').focus();
+          return;
+        }
+      }
+    } catch(e) {
+      // Si falla el Sheet, usar localStorage como respaldo
+      console.warn('Sheet no disponible, usando credenciales locales');
+      const storedUser = (localStorage.getItem('trzl_user') || DEFAULT_USER).toLowerCase();
+      const storedHash = localStorage.getItem('trzl_pwd_hash') || DEFAULT_PWD_HASH;
+      if(user !== storedUser){
+        errEl.style.display='block'; errEl.textContent='Usuario incorrecto';
+        return;
+      }
+      if(hash !== storedHash){
+        errEl.style.display='block'; errEl.textContent='Contraseña incorrecta';
+        document.getElementById('login-pwd').value='';
+        document.getElementById('login-pwd').focus();
+        return;
+      }
+      accesoOk = true;
+    }
+
+    if(!accesoOk) return;
+
+    // Login correcto
+    document.getElementById('login-screen').style.display='none';
+    sessionStorage.setItem('trzl_auth','1');
+    sessionStorage.setItem('trzl_user_active', user);
+    document.getElementById('topbar-user').textContent = user;
+    await cargarDesdeSheets();
+    renderDashboard();
+
+  } finally {
+    if(btn){ btn.disabled=false; btn.textContent='Ingresar'; }
+  }
 }
 
 function cerrarSesion(){
@@ -827,12 +864,14 @@ async function cargarDesdeSheets(){
       });
     }
 
-    // Parsear Acceso
+    // Parsear Acceso — solo actualizar si el usuario actual está en el Sheet
     if(data.Acceso && data.Acceso.length > 1){
       const [hdr, ...rows] = data.Acceso;
-      if(rows[0]){
-        localStorage.setItem('trzl_user', rows[0][0]);
-        localStorage.setItem('trzl_pwd_hash', rows[0][1]);
+      const userActivo = sessionStorage.getItem('trzl_user_active')||'';
+      const fila = rows.find(r => String(r[0]).toLowerCase() === userActivo.toLowerCase());
+      if(fila){
+        localStorage.setItem('trzl_user', fila[0]);
+        localStorage.setItem('trzl_pwd_hash', fila[1]);
       }
     }
 
