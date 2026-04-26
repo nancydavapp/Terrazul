@@ -1,6 +1,6 @@
 const CACHE_NAME = 'terrazul-v1';
 const URLS_TO_CACHE = [
-  '/Terrazul/terrazul-actividades.html',
+  '/Terrazul/actividades.html',
   '/Terrazul/manifest.json',
   '/Terrazul/icon192.png',
   '/Terrazul/icon512.png'
@@ -22,7 +22,7 @@ self.addEventListener('fetch', event => {
         caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseToCache));
         return response;
       });
-    }).catch(() => caches.match('/Terrazul/terrazul-actividades.html'))
+    }).catch(() => caches.match('/Terrazul/actividades.html'))
   );
 });
 
