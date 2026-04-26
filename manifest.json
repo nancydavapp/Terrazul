@@ -2,7 +2,7 @@
   "name": "Terrazul",
   "short_name": "Terrazul",
   "description": "Control de Actividades Terrazul",
-  "start_url": "/Terrazul/terrazul-actividades.html",
+  "start_url": "/Terrazul/actividades.html",
   "display": "standalone",
   "background_color": "#0c0c59",
   "theme_color": "#0c0c59",
