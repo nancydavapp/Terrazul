@@ -1,7 +1,7 @@
 // Service Worker — Terrazul Facturación
 const CACHE = 'trzl-fact-v1';
 const ASSETS = [
-  './terrazul-facturacion.html',
+  './facturacion.html',
 ];
 
 self.addEventListener('install', e => {
