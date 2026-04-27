@@ -2227,19 +2227,41 @@ async function cambiarCredenciales(){
   const nuevoUser = document.getElementById('cfg-usuario').value.trim().toLowerCase();
   const np = document.getElementById('cfg-pwd-new').value;
   const nc = document.getElementById('cfg-pwd-confirm').value;
-  if(nuevoUser) localStorage.setItem('trzl_user', nuevoUser);
+
+  if(!nuevoUser){ toast('El usuario no puede estar vacío','e'); return; }
   if(np || nc){
     if(!np){ toast('Ingresa la nueva contraseña','e'); return; }
     if(np!==nc){ toast('Las contraseñas no coinciden','e'); return; }
     if(np.length<4){ toast('Mínimo 4 caracteres','e'); return; }
+
     const h = await hashStr(np);
-    localStorage.setItem('trzl_pwd_hash', h);
-    await syncAcceso(localStorage.getItem('trzl_user')||DEFAULT_USER, h);
-    toast('✅ Credenciales actualizadas','s');
-    document.getElementById('cfg-pwd-new').value='';
-    document.getElementById('cfg-pwd-confirm').value='';
-  } else if(nuevoUser){
-    toast('✅ Usuario actualizado','s');
+
+    // Guardar en Sheet PRIMERO (fuente de verdad)
+    try {
+      await apiPost({ action:'write', sheet:'Acceso', data:[['usuario','hash'],[nuevoUser, h]] });
+      // Solo si el Sheet OK, actualizar localStorage
+      localStorage.setItem('trzl_user', nuevoUser);
+      localStorage.setItem('trzl_pwd_hash', h);
+      sessionStorage.setItem('trzl_user_active', nuevoUser);
+      document.getElementById('topbar-user').textContent = nuevoUser;
+      toast('✅ Credenciales actualizadas correctamente','s');
+      document.getElementById('cfg-pwd-new').value='';
+      document.getElementById('cfg-pwd-confirm').value='';
+    } catch(e){
+      toast('❌ Error al guardar en Sheet: ' + e.message,'e');
+    }
+  } else {
+    // Solo cambiar usuario
+    try {
+      const hashActual = localStorage.getItem('trzl_pwd_hash') || DEFAULT_PWD_HASH;
+      await apiPost({ action:'write', sheet:'Acceso', data:[['usuario','hash'],[nuevoUser, hashActual]] });
+      localStorage.setItem('trzl_user', nuevoUser);
+      sessionStorage.setItem('trzl_user_active', nuevoUser);
+      document.getElementById('topbar-user').textContent = nuevoUser;
+      toast('✅ Usuario actualizado','s');
+    } catch(e){
+      toast('❌ Error al guardar usuario: ' + e.message,'e');
+    }
   }
 }
 
