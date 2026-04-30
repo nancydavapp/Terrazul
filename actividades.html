@@ -8,9 +8,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Actividades">
-<link rel="manifest" href="manifest-actividades.json">
-<link rel="apple-touch-icon" href="icon-actividades-192.png">
+<meta name="apple-mobile-web-app-title" content="Terrazul">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -941,7 +941,7 @@ function clientes() { return [...new Set(EMPRESAS.map(e=>e[0]))].sort(); }
 // ======================================================
 // GOOGLE SHEETS API
 // ======================================================
-const API_URL = 'https://script.google.com/macros/s/AKfycbxfNAcNmkr4OK7grzl-z0xJbFpXFcLMzTzxOc6aLXio6Mu1SH4abY8jQZjWsLl1Xvsu/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbz8SOvipLme5kZEVQO2aMMI5ABP_x7P0TBKVCHdMh5AWApDtR2shCVCuOXw8Rg5wNhP/exec';
 
 async function sheetRead(sheet) {
   const r = await fetch(`${API_URL}?sheet=${sheet}`);
