@@ -216,6 +216,13 @@ td{padding:9px 12px;color:var(--navy);vertical-align:middle}
     <div class="mb" style="padding:24px">
       <p style="font-size:13px;color:var(--gray-600);margin-bottom:20px">Seleccioná tu nombre para continuar</p>
       <div id="user-btns" style="display:flex;flex-direction:column;gap:10px"></div>
+      <div id="user-clave-wrap" style="display:none;margin-top:16px">
+        <p style="font-size:13px;color:var(--gray-600);margin-bottom:8px">Ingresá tu clave:</p>
+        <input type="password" id="user-clave-input" placeholder="••••" style="width:100%;padding:10px;border:1px solid var(--gray-200);border-radius:var(--rs);font-size:15px;text-align:center" onkeydown="if(event.key==='Enter')verificarClave()">
+        <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="verificarClave()">✅ Ingresar</button>
+        <button class="btn btn-secondary" style="width:100%;margin-top:6px;font-size:12px" onclick="volverSelector()">← Cambiar usuario</button>
+        <p id="user-clave-error" style="display:none;color:var(--red);font-size:12px;margin-top:8px">❌ Clave incorrecta</p>
+      </div>
     </div>
   </div>
 </div>
@@ -1159,7 +1166,8 @@ async function cargarDesdeSheet() {
         PERMISOS = rP.slice(1).filter(r=>r[0]).map(r=>({
           resp: String(r[0]).trim(),
           perfil: String(r[1]).trim(),
-          puedeVer: String(r[2]||'').trim()
+          puedeVer: String(r[2]||'').trim(),
+          clave: String(r[3]||'').trim()
         }));
       }
     }
