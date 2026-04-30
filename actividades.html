@@ -231,12 +231,13 @@ td{padding:9px 12px;color:var(--navy);vertical-align:middle}
     <div class="nav-sec">Principal</div>
     <div class="nav-item active" onclick="nav('dashboard',this)">📋 Panel de Control</div>
     <div class="nav-item" onclick="nav('actividades',this)">✅ Actividades</div>
-    <div class="nav-sec">Configuración</div>
-    <div class="nav-item" onclick="nav('responsables',this)">👤 Responsables</div>
-    <div class="nav-item" onclick="nav('admin-resp',this)">⚙️ Administrar Responsables</div>
-    <div class="nav-item" onclick="nav('clientes',this)">🏢 Clientes y Empresas</div>
-    <div class="nav-item" onclick="nav('admin-emp',this)">⚙️ Administrar Empresas</div>
-    <div class="nav-item" onclick="nav('recordatorios',this)">📧 Recordatorios</div>
+    <div class="nav-sec admin-only" style="display:none">Configuración</div>
+    <div class="nav-item admin-only" style="display:none" onclick="nav('responsables',this)">👤 Responsables</div>
+    <div class="nav-item admin-only" style="display:none" onclick="nav('admin-resp',this)">⚙️ Administrar Responsables</div>
+    <div class="nav-item admin-only" style="display:none" onclick="nav('clientes',this)">🏢 Clientes y Empresas</div>
+    <div class="nav-item admin-only" style="display:none" onclick="nav('admin-emp',this)">⚙️ Administrar Empresas</div>
+    <div class="nav-item admin-only" style="display:none" onclick="nav('permisos',this)">🔐 Permisos</div>
+    <div class="nav-item admin-only" style="display:none" onclick="nav('recordatorios',this)">📧 Recordatorios</div>
     <div class="nav-item" onclick="nav('desde-email',this)">✉️ Crear desde Email</div>
   </nav>
   <div class="sidebar-footer">v2.0 · Terrazul 2026</div>
@@ -426,6 +427,16 @@ td{padding:9px 12px;color:var(--navy);vertical-align:middle}
     </div>
     <div class="stitle">📨 Recordatorios Pendientes</div>
     <div id="rem-preview"></div>
+  </div>
+
+  <!-- PÁGINA: PERMISOS -->
+  <div class="page" id="page-permisos">
+    <div style="max-width:700px;margin:0 auto">
+      <div class="stitle">🔐 Administración de Permisos</div>
+      <p style="font-size:13px;color:var(--gray-600);margin-bottom:16px">Define el perfil y visibilidad de cada responsable.</p>
+      <div id="permisos-tabla"></div>
+      <button class="btn btn-primary" style="margin-top:16px" onclick="guardarPermisos()">💾 Guardar cambios</button>
+    </div>
   </div>
 
   <!-- PÁGINA: CREAR DESDE EMAIL -->
@@ -763,6 +774,8 @@ function seleccionarUsuario(nombre) {
   localStorage.setItem('terrazul_usuario', nombre);
   document.getElementById('user-overlay').style.display = 'none';
   actualizarUsuarioUI();
+  aplicarPermisos();
+  renderAll();
 }
 
 function actualizarUsuarioUI() {
@@ -860,6 +873,87 @@ function setPrior(id, valor) {
   renderAll();
   guardarEnSheet('Actividades');
   toast('Prioridad actualizada','s');
+}
+
+
+let PERMISOS = []; // [{resp, perfil, puedeVer}]
+
+function esAdmin() {
+  if (!USUARIO_ACTUAL) return false;
+  const p = PERMISOS.find(x => x.resp === USUARIO_ACTUAL);
+  return !p || p.perfil === 'Admin'; // si no tiene permisos configurados, es admin por defecto
+}
+
+function puedeVerActividad(a) {
+  if (esAdmin()) return true;
+  const p = PERMISOS.find(x => x.resp === USUARIO_ACTUAL);
+  if (!p) return a.resp === USUARIO_ACTUAL;
+  const puedeVer = (p.puedeVer || '').split(',').map(s => s.trim()).filter(Boolean);
+  return puedeVer.includes(a.resp) || a.resp === USUARIO_ACTUAL;
+}
+
+function aplicarPermisos() {
+  const isAdmin = esAdmin();
+  document.querySelectorAll('.admin-only').forEach(el => {
+    el.style.display = isAdmin ? '' : 'none';
+  });
+}
+
+function renderPermisos() {
+  const tbody = RESPONSABLES.map(r => {
+    const p = PERMISOS.find(x => x.resp === r.nombre) || {perfil:'Usuario', puedeVer:''};
+    const optsResps = RESPONSABLES.map(rr => 
+      `<label style="display:block;font-size:12px;margin:2px 0">
+        <input type="checkbox" value="${rr.nombre}" ${(p.puedeVer||'').includes(rr.nombre)?'checked':''} 
+          onchange="updatePuedeVer('${r.nombre}',this)"> ${rr.nombre}
+      </label>`).join('');
+    return `<tr>
+      <td style="font-weight:600">${r.nombre}</td>
+      <td>
+        <select onchange="updatePerfil('${r.nombre}',this)" style="font-size:12px;padding:4px">
+          <option value="Admin" ${p.perfil==='Admin'?'selected':''}>👑 Admin</option>
+          <option value="Usuario" ${p.perfil!=='Admin'?'selected':''}>👤 Usuario</option>
+        </select>
+      </td>
+      <td id="pv-${r.nombre}" style="font-size:12px">${p.perfil==='Admin'?'<span style="color:var(--gray-400)">Todos</span>':optsResps}</td>
+    </tr>`;
+  }).join('');
+  
+  document.getElementById('permisos-tabla').innerHTML = `
+    <table style="width:100%">
+      <thead><tr><th>Responsable</th><th>Perfil</th><th>Puede ver actividades de</th></tr></thead>
+      <tbody>${tbody}</tbody>
+    </table>`;
+}
+
+function updatePerfil(nombre, sel) {
+  const p = PERMISOS.find(x => x.resp === nombre);
+  if (p) p.perfil = sel.value;
+  else PERMISOS.push({resp: nombre, perfil: sel.value, puedeVer: ''});
+  const cell = document.getElementById(`pv-${nombre}`);
+  if (sel.value === 'Admin') {
+    cell.innerHTML = '<span style="color:var(--gray-400)">Todos</span>';
+  } else {
+    cell.innerHTML = RESPONSABLES.map(rr => 
+      `<label style="display:block;font-size:12px;margin:2px 0">
+        <input type="checkbox" value="${rr.nombre}" onchange="updatePuedeVer('${nombre}',this)"> ${rr.nombre}
+      </label>`).join('');
+  }
+}
+
+function updatePuedeVer(nombre, cb) {
+  let p = PERMISOS.find(x => x.resp === nombre);
+  if (!p) { p = {resp: nombre, perfil: 'Usuario', puedeVer: ''}; PERMISOS.push(p); }
+  const checks = document.querySelectorAll(`#pv-${nombre} input[type=checkbox]`);
+  p.puedeVer = [...checks].filter(c=>c.checked).map(c=>c.value).join(', ');
+}
+
+async function guardarPermisos() {
+  const rows = [['Responsable','Perfil','Puede ver'],
+    ...PERMISOS.map(p => [p.resp, p.perfil, p.puedeVer||''])];
+  await sheetWrite('Permisos', rows);
+  toast('Permisos guardados','s');
+  aplicarPermisos();
 }
 
 
@@ -1025,13 +1119,14 @@ async function guardarEnSheet(solo = null) {
 async function cargarDesdeSheet() {
   mostrarCargando(true);
   try {
-    const [rA, rE, rR, rC, rEt, rU] = await Promise.all([
+    const [rA, rE, rR, rC, rEt, rU, rP] = await Promise.all([
       sheetRead('Actividades'),
       sheetRead('Empresas'),
       sheetRead('Responsables'),
       sheetRead('Categorias'),
       sheetRead('Etapas'),
       sheetRead('Ubicaciones'),
+      sheetRead('Permisos'),
     ]);
 
     // Cargar categorías dinámicas
@@ -1060,6 +1155,13 @@ async function cargarDesdeSheet() {
       }
       if (rE.length > 1) EMPRESAS = rowsToEmps(rE);
       if (rR.length > 1) RESPONSABLES = rowsToResps(rR);
+      if (rP && rP.length > 1) {
+        PERMISOS = rP.slice(1).filter(r=>r[0]).map(r=>({
+          resp: String(r[0]).trim(),
+          perfil: String(r[1]).trim(),
+          puedeVer: String(r[2]||'').trim()
+        }));
+      }
     }
   } catch(e) {
     toast('Sin conexión — usando datos locales','w');
@@ -1069,6 +1171,7 @@ async function cargarDesdeSheet() {
   poblarSelectsCategorias();
   document.getElementById('f-sol').value = hoy();
   renderAll();
+  aplicarPermisos();
   setTimeout(initUsuario, 500);
 }
 
@@ -1117,6 +1220,7 @@ function nav(page, el) {
   if (page === 'admin-resp') initAdminResp();
   if (page === 'recordatorios') renderRemPreview();
   if (page === 'desde-email') initDesdeEmail();
+  if (page === 'permisos') renderPermisos();
 }
 
 // ======================================================
@@ -1162,6 +1266,7 @@ function renderActs() {
   const fc = document.getElementById('s-cliente').value;
   const fr = document.getElementById('s-resp').value;
   let list = ACTIVIDADES.filter(a => {
+    if (!puedeVerActividad(a)) return false;
     if (fc && a.cliente!==fc) return false;
     if (fr && a.resp!==fr) return false;
     if (buscar && !a.empresa.toLowerCase().includes(buscar) && !a.tarea.toLowerCase().includes(buscar) && !a.desc.toLowerCase().includes(buscar)) return false;
